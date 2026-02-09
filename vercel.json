@@ -1,0 +1,7 @@
+{
+  "buildCommand": "bash vercel_build.sh",
+  "outputDirectory": "build/web",
+  "env": {
+    "API_URL": "https://nifty-paper-trading-api.onrender.com"
+  }
+}
