@@ -46,10 +46,6 @@ final _router = GoRouter(
           path: '/v544',
           builder: (_, __) => const TradesPage(version: 'v5.4.4'),
         ),
-        GoRoute(
-          path: '/v62',
-          builder: (_, __) => const TradesPage(version: 'v6.2'),
-        ),
       ],
     ),
   ],

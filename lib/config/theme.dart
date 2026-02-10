@@ -37,7 +37,6 @@ class AppTheme {
     'v5.4.2': Color(0xFF4A90D9), // blue
     'v5.4.3': Color(0xFFE8833A), // orange
     'v5.4.4': Color(0xFF50C878), // green
-    'v6.2': Color(0xFFE5534B),   // red
   };
 
   // PnL colors
