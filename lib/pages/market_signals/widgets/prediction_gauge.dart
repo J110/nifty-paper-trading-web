@@ -6,7 +6,8 @@ import '../../../config/theme.dart';
 
 /// A semicircle gauge showing predicted max drawdown.
 ///
-/// Layout: LEFT = 0% (green, bullish) → RIGHT = -8% (red, bearish).
+/// Layout: LEFT = 0% (green, bullish) → RIGHT = -8% or -15% (red, bearish).
+/// Range adapts: -8% for 6 zones (v5.x), -15% for 7+ zones (v6.2+).
 /// The needle points right for more negative (dangerous) predictions
 /// and left for milder predictions.
 class PredictionGauge extends StatelessWidget {
@@ -101,19 +102,20 @@ class _GaugePainter extends CustomPainter {
   final double predictedDrawdownPct;
   final List<Zone> zones;
 
-  // Gauge range: 0% (safe, left) to -8% (danger, right)
-  static const double minValue = -8.0; // rightmost (most bearish)
-  static const double maxValue = 0.0;  // leftmost (most bullish)
+  // Gauge range adapts: 0% to -8% for 6 zones, 0% to -15% for 7+ zones
+  double get minValue => zones.length > 6 ? -15.0 : -8.0;
+  static const double maxValue = 0.0;
 
   // Zone colors — drawn LEFT to RIGHT: green → red
-  // Reversed from the API order so green is on the left (0%) and red on the right (-8%)
+  // Reversed from the API order so green is on the left (0%) and red on the right
   static const List<Color> _zoneColorsLeftToRight = [
     Color(0xFF00E676), // Strong Bull (bright green) — left
     Color(0xFF66BB6A), // Moderate Bull (green)
     Color(0xFFA5D6A7), // Bull Full (light green)
     Color(0xFFFFD54F), // Bull Half (yellow)
     Color(0xFFFF9800), // Iron Condor (orange)
-    Color(0xFFEF5350), // No Trade (red) — right
+    Color(0xFFEF5350), // Bear Moderate (red)
+    Color(0xFFB71C1C), // Bear Strong (deep red) — right
   ];
 
   _GaugePainter({
@@ -161,9 +163,10 @@ class _GaugePainter extends CustomPainter {
         currentAngle += sweepAngle;
       }
     } else {
-      // Fallback: 6 equal segments, green on left → red on right
-      final segmentAngle = pi / 6;
-      for (int i = 0; i < 6; i++) {
+      // Fallback: equal segments, green on left → red on right
+      final numSegments = _zoneColorsLeftToRight.length;
+      final segmentAngle = pi / numSegments;
+      for (int i = 0; i < numSegments; i++) {
         final paint = Paint()
           ..color = _zoneColorsLeftToRight[i]
           ..style = PaintingStyle.stroke
@@ -178,11 +181,11 @@ class _GaugePainter extends CustomPainter {
 
   List<double> _parseZoneRanges() {
     if (zones.isEmpty) {
-      return List.filled(6, 1.0 / 6);
+      return List.filled(7, 1.0 / 7);
     }
 
     final widths = <double>[];
-    final totalRange = (maxValue - minValue).abs(); // 8.0
+    final totalRange = (maxValue - minValue).abs(); // 8.0 or 15.0
 
     for (final zone in zones) {
       final parts = zone.range.split(' to ');
@@ -213,9 +216,12 @@ class _GaugePainter extends CustomPainter {
       fontSize: 10,
     );
 
-    // Draw tick marks at 0, -1, -2, ..., -8
-    for (int i = 0; i <= 8; i++) {
-      final value = -i.toDouble(); // 0, -1, -2, ..., -8
+    // Draw tick marks dynamically based on gauge range
+    final maxTick = minValue.abs().toInt(); // 8 or 15
+    final labelStep = maxTick > 10 ? 3 : 2; // every 3% for -15 range, every 2% for -8
+
+    for (int i = 0; i <= maxTick; i++) {
+      final value = -i.toDouble();
       final angle = _valueToAngle(value);
 
       final outerPoint = Offset(
@@ -227,10 +233,10 @@ class _GaugePainter extends CustomPainter {
         center.dy + (radius - radius * 0.09) * sin(angle),
       );
 
-      canvas.drawLine(innerPoint, outerPoint, tickPaint);
+      // Only draw tick lines at label intervals to avoid crowding on -15 range
+      if (i % labelStep == 0) {
+        canvas.drawLine(innerPoint, outerPoint, tickPaint);
 
-      // Label — only show every 2% to avoid crowding
-      if (i % 2 == 0) {
         final tp = TextPainter(
           text: TextSpan(text: '${value.toInt()}%', style: textStyle),
           textDirection: TextDirection.ltr,
@@ -312,15 +318,16 @@ class _GaugePainter extends CustomPainter {
   }
 
   /// Maps a value to an angle on the semicircle.
-  /// 0% (safe) -> pi (left), -8% (danger) -> 0 (right)
+  /// 0% (safe) -> pi (left), minValue (danger) -> 0 (right)
   double _valueToAngle(double value) {
-    // normalized: 0% → 0.0 (left), -8% → 1.0 (right)
+    // normalized: 0% → 0.0 (left), minValue → 1.0 (right)
     final normalized = (maxValue - value) / (maxValue - minValue);
     return pi * (1.0 - normalized); // pi (left) .. 0 (right)
   }
 
   @override
   bool shouldRepaint(covariant _GaugePainter oldDelegate) {
-    return oldDelegate.predictedDrawdownPct != predictedDrawdownPct;
+    return oldDelegate.predictedDrawdownPct != predictedDrawdownPct ||
+        oldDelegate.zones.length != zones.length;
   }
 }
