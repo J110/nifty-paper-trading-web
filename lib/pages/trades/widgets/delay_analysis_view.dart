@@ -194,7 +194,7 @@ class _DelayAnalysisViewState extends ConsumerState<DelayAnalysisView> {
     final maxPnl = buckets
         .map((b) => b.bucket.totalPnl.abs())
         .fold<double>(0, (a, b) => a > b ? a : b);
-    final ceiling = maxPnl > 0 ? maxPnl * 1.2 : 1000;
+    final double ceiling = maxPnl > 0 ? maxPnl * 1.2 : 1000.0;
 
     return BarChart(
       BarChartData(

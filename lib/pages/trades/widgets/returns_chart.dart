@@ -151,7 +151,7 @@ class _ReturnsChartState extends ConsumerState<ReturnsChart> {
     final maxVal = returns
         .map((r) => r.pnl.abs())
         .fold<double>(0, (a, b) => a > b ? a : b);
-    final ceiling = maxVal > 0 ? maxVal * 1.2 : 1000;
+    final double ceiling = maxVal > 0 ? maxVal * 1.2 : 1000.0;
 
     // Limit visible bars to prevent overcrowding
     final visibleReturns =
