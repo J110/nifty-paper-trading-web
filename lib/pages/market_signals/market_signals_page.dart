@@ -205,38 +205,52 @@ class _NiftyPriceHeader extends StatelessWidget {
                   ],
                 ),
 
-                // Daily change (predicted drawdown %)
+                // Predicted drawdown badge with label
                 if (drawdownPct != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.pnlColor(drawdownPct).withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          drawdownPct >= 0
-                              ? Icons.arrow_upward
-                              : Icons.arrow_downward,
-                          size: 16,
-                          color: AppTheme.pnlColor(drawdownPct),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'Predicted Drawdown',
+                        style: TextStyle(
+                          color: const Color(0xFF8B949E),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${drawdownPct >= 0 ? '+' : ''}${drawdownPct.toStringAsFixed(2)}%',
-                          style: TextStyle(
-                            color: AppTheme.pnlColor(drawdownPct),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                          ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
                         ),
-                      ],
-                    ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.pnlColor(drawdownPct).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              drawdownPct >= 0
+                                  ? Icons.arrow_upward
+                                  : Icons.arrow_downward,
+                              size: 16,
+                              color: AppTheme.pnlColor(drawdownPct),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${drawdownPct >= 0 ? '+' : ''}${drawdownPct.toStringAsFixed(2)}%',
+                              style: TextStyle(
+                                color: AppTheme.pnlColor(drawdownPct),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
               ],
             ),
