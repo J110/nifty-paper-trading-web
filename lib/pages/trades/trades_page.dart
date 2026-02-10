@@ -126,7 +126,7 @@ class _TradesPageContentState extends State<_TradesPageContent>
           tabs: const [
             Tab(text: 'Open'),
             Tab(text: 'Closed'),
-            Tab(text: 'Delays'),
+            Tab(text: 'Delay Impact'),
             Tab(text: 'Returns'),
           ],
         ),

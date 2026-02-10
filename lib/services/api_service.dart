@@ -69,8 +69,14 @@ class ApiService {
   }
 
   // ── Delay Analysis ──
-  Future<DelayAnalysisResponse> getDelayAnalysis(String version) async {
-    final resp = await _dio.get(ApiConfig.delayAnalysis(version));
+  Future<DelayAnalysisResponse> getDelayAnalysis(
+    String version, {
+    String dataMode = 'combined',
+  }) async {
+    final resp = await _dio.get(
+      ApiConfig.delayAnalysis(version),
+      queryParameters: {'data_mode': dataMode},
+    );
     return DelayAnalysisResponse.fromJson(resp.data);
   }
 

@@ -338,9 +338,9 @@ class _ReturnsChartState extends ConsumerState<ReturnsChart> {
   String _dataModeSubtitle(String mode) {
     switch (mode) {
       case 'backtest':
-        return 'Before 11 Feb 2025';
+        return 'Before 11 Feb 2026';
       case 'forwardtest':
-        return 'From 11 Feb 2025';
+        return 'From 11 Feb 2026';
       default:
         return 'All trades';
     }

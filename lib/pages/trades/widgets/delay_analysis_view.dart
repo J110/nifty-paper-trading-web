@@ -21,6 +21,7 @@ class DelayAnalysisView extends ConsumerStatefulWidget {
 
 class _DelayAnalysisViewState extends ConsumerState<DelayAnalysisView> {
   bool _showPerTrade = false;
+  String _dataMode = 'combined';
 
   static final _inrFormat = NumberFormat.currency(
     locale: 'en_IN',
@@ -28,9 +29,14 @@ class _DelayAnalysisViewState extends ConsumerState<DelayAnalysisView> {
     decimalDigits: 0,
   );
 
+  DelayParams get _params => (
+        version: widget.version,
+        dataMode: _dataMode,
+      );
+
   @override
   Widget build(BuildContext context) {
-    final asyncData = ref.watch(delayAnalysisProvider(widget.version));
+    final asyncData = ref.watch(delayAnalysisProvider(_params));
     final accentColor = AppTheme.versionColor(widget.version);
 
     return asyncData.when(
@@ -38,7 +44,7 @@ class _DelayAnalysisViewState extends ConsumerState<DelayAnalysisView> {
       error: (err, _) => AppErrorWidget(
         message: friendlyError(err),
         onRetry: () =>
-            ref.invalidate(delayAnalysisProvider(widget.version)),
+            ref.invalidate(delayAnalysisProvider(_params)),
       ),
       data: (response) =>
           _buildContent(response.analysis, accentColor),
@@ -53,6 +59,57 @@ class _DelayAnalysisViewState extends ConsumerState<DelayAnalysisView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Explanation header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF161B22),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF30363D)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.timer_outlined,
+                      color: accentColor,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Execution Delay Impact',
+                      style: TextStyle(
+                        color: Color(0xFFC9D1D9),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'When a trade signal fires, you may not execute immediately. '
+                  'This analysis shows how your P&L would change if you entered '
+                  '10 min, 1 hr, 3 hr, 6 hr, or 12 hr after the signal — '
+                  'helping you understand if timing matters for this strategy.',
+                  style: TextStyle(
+                    color: Color(0xFF8B949E),
+                    fontSize: 11,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Data mode toggle (Backtest / Forward / Combined)
+          _buildDataModeToggle(),
+          const SizedBox(height: 12),
+
           // Toggle and best delay header
           Row(
             children: [
@@ -100,6 +157,7 @@ class _DelayAnalysisViewState extends ConsumerState<DelayAnalysisView> {
           if (_showPerTrade) ...[
             ...analysis.perTrade.map((tradeData) {
               final tradeId = tradeData['trade_id'] ?? '?';
+              final signalDate = tradeData['signal_date'] ?? '';
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
@@ -111,13 +169,27 @@ class _DelayAnalysisViewState extends ConsumerState<DelayAnalysisView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Trade: $tradeId',
-                      style: const TextStyle(
-                        color: Color(0xFFC9D1D9),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Trade: $tradeId',
+                            style: const TextStyle(
+                              color: Color(0xFFC9D1D9),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (signalDate.isNotEmpty)
+                          Text(
+                            signalDate,
+                            style: const TextStyle(
+                              color: Color(0xFF484F58),
+                              fontSize: 11,
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     Wrap(
@@ -128,22 +200,109 @@ class _DelayAnalysisViewState extends ConsumerState<DelayAnalysisView> {
                           'Immediate',
                           tradeData['immediate_pnl'],
                         ),
-                        _perTradeChip('10min', tradeData['10min_pnl']),
-                        _perTradeChip('1hr', tradeData['1hr_pnl']),
-                        _perTradeChip('3hr', tradeData['3hr_pnl']),
-                        _perTradeChip('6hr', tradeData['6hr_pnl']),
-                        _perTradeChip('12hr', tradeData['12hr_pnl']),
+                        _perTradeChip('10min', tradeData['pnl_delta_10min']),
+                        _perTradeChip('1hr', tradeData['pnl_delta_1hr']),
+                        _perTradeChip('3hr', tradeData['pnl_delta_3hr']),
+                        _perTradeChip('6hr', tradeData['pnl_delta_6hr']),
+                        _perTradeChip('12hr', tradeData['pnl_delta_12hr']),
                       ],
                     ),
                   ],
                 ),
               );
             }),
+            if (analysis.perTrade.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 24),
+                  child: Text(
+                    'No delay data for this selection',
+                    style: TextStyle(
+                      color: Colors.grey.shade500,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ],
       ),
     );
   }
+
+  // ── Data Mode Toggle ──
+
+  Widget _buildDataModeToggle() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1117),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF30363D)),
+      ),
+      child: Row(
+        children: [
+          _dataModeButton('Backtest', 'backtest', const Color(0xFFE8833A)),
+          _dataModeButton('Forward', 'forwardtest', const Color(0xFF58A6FF)),
+          _dataModeButton('Combined', 'combined', const Color(0xFF50C878)),
+        ],
+      ),
+    );
+  }
+
+  Widget _dataModeButton(String label, String value, Color accentColor) {
+    final selected = _dataMode == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _dataMode = value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: selected
+                ? accentColor.withOpacity(0.15)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+            border: selected
+                ? Border.all(color: accentColor.withOpacity(0.4))
+                : null,
+          ),
+          child: Column(
+            children: [
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: selected ? accentColor : const Color(0xFF8B949E),
+                  fontSize: 12,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+              if (selected)
+                Text(
+                  _dataModeSubtitle(value),
+                  style: TextStyle(
+                    color: accentColor.withOpacity(0.6),
+                    fontSize: 9,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _dataModeSubtitle(String mode) {
+    switch (mode) {
+      case 'backtest':
+        return 'Before 11 Feb 2026';
+      case 'forwardtest':
+        return 'From 11 Feb 2026';
+      default:
+        return 'All trades';
+    }
+  }
+
+  // ── Aggregate / Per Trade Toggle ──
 
   Widget _buildToggle() {
     return Container(
@@ -333,6 +492,14 @@ class _DelayAnalysisViewState extends ConsumerState<DelayAnalysisView> {
               color: Color(0xFF8B949E),
               fontSize: 11,
               fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'How much more or less you would have earned by waiting this long after the signal',
+            style: TextStyle(
+              color: Color(0xFF484F58),
+              fontSize: 10,
             ),
           ),
           const SizedBox(height: 8),

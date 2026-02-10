@@ -13,10 +13,18 @@ final tradesProvider =
   },
 );
 
+typedef DelayParams = ({
+  String version,
+  String dataMode,
+});
+
 final delayAnalysisProvider =
-    FutureProvider.family.autoDispose<DelayAnalysisResponse, String>(
-  (ref, version) async {
-    return ref.read(apiServiceProvider).getDelayAnalysis(version);
+    FutureProvider.family.autoDispose<DelayAnalysisResponse, DelayParams>(
+  (ref, params) async {
+    return ref.read(apiServiceProvider).getDelayAnalysis(
+          params.version,
+          dataMode: params.dataMode,
+        );
   },
 );
 
