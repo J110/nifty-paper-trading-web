@@ -85,64 +85,213 @@ class _IndicatorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final classColor = _classificationColor(indicator.classification);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // Label
-            Text(
-              indicator.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11,
-                color: const Color(0xFF8B949E),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 4),
-
-            // Value
-            Text(
-              indicator.formattedValue,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 4),
-
-            // Classification badge
-            Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: classColor,
-                    shape: BoxShape.circle,
+    return GestureDetector(
+      onTap: () => _showDetail(context),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Label + info icon
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      indicator.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: const Color(0xFF8B949E),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
+                  if (indicator.description.isNotEmpty)
+                    Icon(
+                      Icons.info_outline,
+                      size: 13,
+                      color: const Color(0xFF484F58),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+
+              // Value
+              Text(
+                indicator.formattedValue,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  _capitalizeFirst(indicator.classification),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: classColor,
-                    fontWeight: FontWeight.w500,
+              ),
+              const SizedBox(height: 4),
+
+              // Classification badge
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: classColor,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _capitalizeFirst(indicator.classification),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: classColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  void _showDetail(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF161B22),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        final classColor = _classificationColor(indicator.classification);
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Handle bar
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF30363D),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Title + value
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      indicator.label,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: classColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: classColor.withOpacity(0.4)),
+                    ),
+                    child: Text(
+                      indicator.formattedValue,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: classColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Description
+              if (indicator.description.isNotEmpty)
+                Text(
+                  indicator.description,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF8B949E),
+                  ),
+                ),
+              const SizedBox(height: 16),
+
+              // Bullish/Bearish explanation
+              if (indicator.bullishWhen.isNotEmpty)
+                _SignalRow(
+                  icon: Icons.trending_up,
+                  color: AppTheme.profit,
+                  label: 'Bullish',
+                  description: indicator.bullishWhen,
+                ),
+              if (indicator.bearishWhen.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _SignalRow(
+                  icon: Icons.trending_down,
+                  color: AppTheme.loss,
+                  label: 'Bearish',
+                  description: indicator.bearishWhen,
+                ),
+              ],
+              const SizedBox(height: 16),
+
+              // Current classification
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: classColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: classColor.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: classColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Currently ${_capitalizeFirst(indicator.classification)}',
+                      style: TextStyle(
+                        color: classColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -161,6 +310,54 @@ class _IndicatorCard extends StatelessWidget {
   String _capitalizeFirst(String s) {
     if (s.isEmpty) return s;
     return s[0].toUpperCase() + s.substring(1);
+  }
+}
+
+class _SignalRow extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final String description;
+
+  const _SignalRow({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.description,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                description,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFFC9D1D9),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 

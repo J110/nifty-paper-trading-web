@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 import '../../../models/signal.dart';
 import '../../../config/theme.dart';
 
-/// A semicircle gauge showing predicted max drawdown from -5% to 0%.
+/// A semicircle gauge showing predicted max drawdown.
 ///
-/// Draws 6 colored arc segments matching zones and a needle
-/// pointing to the current prediction value.
+/// Layout: LEFT = 0% (green, bullish) → RIGHT = -8% (red, bearish).
+/// The needle points right for more negative (dangerous) predictions
+/// and left for milder predictions.
 class PredictionGauge extends StatelessWidget {
   final double predictedDrawdownPct;
   final String currentZone;
@@ -100,19 +101,19 @@ class _GaugePainter extends CustomPainter {
   final double predictedDrawdownPct;
   final List<Zone> zones;
 
-  // Gauge range: -5% to 0%
-  static const double minValue = -5.0;
-  static const double maxValue = 0.0;
+  // Gauge range: 0% (safe, left) to -8% (danger, right)
+  static const double minValue = -8.0; // rightmost (most bearish)
+  static const double maxValue = 0.0;  // leftmost (most bullish)
 
-  // Zone colors in order: Strong Bull, Moderate Bull, Bull Full,
-  // Bull Half, Iron Condor, No Trade
-  static const List<Color> _defaultZoneColors = [
-    Color(0xFF00E676), // Strong Bull (bright green)
+  // Zone colors — drawn LEFT to RIGHT: green → red
+  // Reversed from the API order so green is on the left (0%) and red on the right (-8%)
+  static const List<Color> _zoneColorsLeftToRight = [
+    Color(0xFF00E676), // Strong Bull (bright green) — left
     Color(0xFF66BB6A), // Moderate Bull (green)
     Color(0xFFA5D6A7), // Bull Full (light green)
     Color(0xFFFFD54F), // Bull Half (yellow)
     Color(0xFFFF9800), // Iron Condor (orange)
-    Color(0xFFEF5350), // No Trade (red)
+    Color(0xFFEF5350), // No Trade (red) — right
   ];
 
   _GaugePainter({
@@ -125,11 +126,6 @@ class _GaugePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height - 10);
     final radius = min(size.width / 2 - 20, size.height - 30);
 
-    // Semicircle from pi to 0 (left to right)
-    // -5% is at pi (left), 0% is at 0 (right)
-    // We divide the semicircle into 6 equal segments
-    // but ideally proportional to zone range widths.
-
     _drawArcSegments(canvas, center, radius);
     _drawTicks(canvas, center, radius);
     _drawNeedle(canvas, center, radius);
@@ -141,18 +137,22 @@ class _GaugePainter extends CustomPainter {
     final arcRect = Rect.fromCircle(center: center, radius: radius);
 
     if (zones.isNotEmpty) {
-      // Parse zone ranges to get proportional widths
+      // Zones from API: [Strong Bull (0%), ..., No Trade (-8%)]
+      // On the gauge: 0% = left (pi), -8% = right (0)
+      // So Strong Bull is drawn at left (pi) and No Trade at right (0)
       final zoneRanges = _parseZoneRanges();
-      double currentAngle = pi; // Start from left (pi)
+      double currentAngle = pi; // Start from left (0%)
 
       for (int i = 0; i < zoneRanges.length; i++) {
         final fraction = zoneRanges[i];
-        final sweepAngle = -fraction * pi; // Negative because pi -> 0
+        final sweepAngle = -fraction * pi; // Sweep towards right (0)
+
+        final color = i < _zoneColorsLeftToRight.length
+            ? _zoneColorsLeftToRight[i]
+            : Colors.grey;
 
         final paint = Paint()
-          ..color = i < _defaultZoneColors.length
-              ? _defaultZoneColors[i]
-              : Colors.grey
+          ..color = color
           ..style = PaintingStyle.stroke
           ..strokeWidth = arcWidth
           ..strokeCap = StrokeCap.butt;
@@ -161,11 +161,11 @@ class _GaugePainter extends CustomPainter {
         currentAngle += sweepAngle;
       }
     } else {
-      // Fallback: 6 equal segments
+      // Fallback: 6 equal segments, green on left → red on right
       final segmentAngle = pi / 6;
       for (int i = 0; i < 6; i++) {
         final paint = Paint()
-          ..color = _defaultZoneColors[i]
+          ..color = _zoneColorsLeftToRight[i]
           ..style = PaintingStyle.stroke
           ..strokeWidth = arcWidth
           ..strokeCap = StrokeCap.butt;
@@ -177,14 +177,12 @@ class _GaugePainter extends CustomPainter {
   }
 
   List<double> _parseZoneRanges() {
-    // Each zone has a 'range' like "-5.00 to -3.50"
-    // Calculate proportional widths
     if (zones.isEmpty) {
       return List.filled(6, 1.0 / 6);
     }
 
     final widths = <double>[];
-    final totalRange = (maxValue - minValue).abs(); // 5.0
+    final totalRange = (maxValue - minValue).abs(); // 8.0
 
     for (final zone in zones) {
       final parts = zone.range.split(' to ');
@@ -215,9 +213,9 @@ class _GaugePainter extends CustomPainter {
       fontSize: 10,
     );
 
-    // Draw tick marks at -5, -4, -3, -2, -1, 0
-    for (int i = 0; i <= 5; i++) {
-      final value = -5.0 + i;
+    // Draw tick marks at 0, -1, -2, ..., -8
+    for (int i = 0; i <= 8; i++) {
+      final value = -i.toDouble(); // 0, -1, -2, ..., -8
       final angle = _valueToAngle(value);
 
       final outerPoint = Offset(
@@ -231,17 +229,19 @@ class _GaugePainter extends CustomPainter {
 
       canvas.drawLine(innerPoint, outerPoint, tickPaint);
 
-      // Label
-      final tp = TextPainter(
-        text: TextSpan(text: '${value.toInt()}%', style: textStyle),
-        textDirection: TextDirection.ltr,
-      )..layout();
+      // Label — only show every 2% to avoid crowding
+      if (i % 2 == 0) {
+        final tp = TextPainter(
+          text: TextSpan(text: '${value.toInt()}%', style: textStyle),
+          textDirection: TextDirection.ltr,
+        )..layout();
 
-      final labelOffset = Offset(
-        center.dx + (radius + 28) * cos(angle) - tp.width / 2,
-        center.dy + (radius + 28) * sin(angle) - tp.height / 2,
-      );
-      tp.paint(canvas, labelOffset);
+        final labelOffset = Offset(
+          center.dx + (radius + 28) * cos(angle) - tp.width / 2,
+          center.dy + (radius + 28) * sin(angle) - tp.height / 2,
+        );
+        tp.paint(canvas, labelOffset);
+      }
     }
   }
 
@@ -311,11 +311,12 @@ class _GaugePainter extends CustomPainter {
     );
   }
 
-  /// Maps a value in [-5, 0] to an angle on the semicircle.
-  /// -5% -> pi (left), 0% -> 0 (right)
+  /// Maps a value to an angle on the semicircle.
+  /// 0% (safe) -> pi (left), -8% (danger) -> 0 (right)
   double _valueToAngle(double value) {
-    final normalized = (value - minValue) / (maxValue - minValue); // 0..1
-    return pi * (1.0 - normalized); // pi..0
+    // normalized: 0% → 0.0 (left), -8% → 1.0 (right)
+    final normalized = (maxValue - value) / (maxValue - minValue);
+    return pi * (1.0 - normalized); // pi (left) .. 0 (right)
   }
 
   @override

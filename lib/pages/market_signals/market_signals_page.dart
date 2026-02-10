@@ -1,8 +1,11 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 import '../../models/signal.dart';
+import '../../models/chart_data.dart';
 import '../../config/theme.dart';
 import '../../providers/signals_provider.dart';
 import '../shared/loading_widget.dart';
@@ -77,12 +80,14 @@ class MarketSignalsPage extends ConsumerWidget {
   }
 }
 
-class _SignalsContent extends StatelessWidget {
+class _SignalsContent extends ConsumerWidget {
   final SignalResponse signal;
   const _SignalsContent({required this.signal});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final niftyChartAsync = ref.watch(niftyChartProvider);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
@@ -90,6 +95,16 @@ class _SignalsContent extends StatelessWidget {
         children: [
           // ------ 1. Nifty Price Header ------
           _NiftyPriceHeader(signal: signal),
+          const SizedBox(height: 12),
+
+          // ------ 1b. Nifty Sparkline Chart ------
+          niftyChartAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (candles) => candles.length >= 2
+                ? _NiftySparkline(candles: candles)
+                : const SizedBox.shrink(),
+          ),
           const SizedBox(height: 20),
 
           // ------ 2. Model Prediction ------
@@ -348,6 +363,136 @@ class _EmptyCard extends StatelessWidget {
               fontSize: 14,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---- Nifty Sparkline Chart ----
+
+class _NiftySparkline extends StatelessWidget {
+  final List<OhlcCandle> candles;
+  const _NiftySparkline({required this.candles});
+
+  @override
+  Widget build(BuildContext context) {
+    if (candles.isEmpty) return const SizedBox.shrink();
+
+    final firstClose = candles.first.close;
+    final lastClose = candles.last.close;
+    final changePct = firstClose > 0
+        ? ((lastClose - firstClose) / firstClose) * 100
+        : 0.0;
+    final isPositive = changePct >= 0;
+    final lineColor = isPositive ? AppTheme.profit : AppTheme.loss;
+
+    final spots = candles.asMap().entries.map((e) {
+      return FlSpot(e.key.toDouble(), e.value.close);
+    }).toList();
+
+    final minY = spots.map((s) => s.y).reduce(math.min);
+    final maxY = spots.map((s) => s.y).reduce(math.max);
+    final yPad = (maxY - minY) * 0.05;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Nifty 50 — Last ${candles.length} days',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: const Color(0xFF8B949E),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: lineColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '${isPositive ? '+' : ''}${changePct.toStringAsFixed(2)}%',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: lineColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 100,
+              child: LineChart(
+                LineChartData(
+                  minY: minY - yPad,
+                  maxY: maxY + yPad,
+                  clipData: const FlClipData.all(),
+                  lineTouchData: LineTouchData(
+                    touchTooltipData: LineTouchTooltipData(
+                      tooltipRoundedRadius: 8,
+                      getTooltipItems: (touchedSpots) {
+                        return touchedSpots.map((spot) {
+                          final idx = spot.x.toInt();
+                          final candle = idx < candles.length
+                              ? candles[idx]
+                              : null;
+                          String label = '';
+                          if (candle != null) {
+                            try {
+                              final dt =
+                                  DateTime.parse(candle.timestamp);
+                              label =
+                                  '${DateFormat('d MMM').format(dt)}\n';
+                            } catch (_) {}
+                          }
+                          return LineTooltipItem(
+                            '$label${NumberFormat('#,##0', 'en_IN').format(spot.y)}',
+                            TextStyle(
+                              color: lineColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          );
+                        }).toList();
+                      },
+                    ),
+                    handleBuiltInTouches: true,
+                  ),
+                  gridData: const FlGridData(show: false),
+                  titlesData: const FlTitlesData(show: false),
+                  borderData: FlBorderData(show: false),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: spots,
+                      isCurved: true,
+                      curveSmoothness: 0.25,
+                      color: lineColor,
+                      barWidth: 1.8,
+                      isStrokeCapRound: true,
+                      dotData: const FlDotData(show: false),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: lineColor.withOpacity(0.06),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

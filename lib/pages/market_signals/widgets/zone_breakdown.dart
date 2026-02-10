@@ -17,8 +17,8 @@ class ZoneBreakdown extends StatelessWidget {
     required this.currentZone,
   });
 
-  // Full range: -5% to 0%
-  static const double _minValue = -5.0;
+  // Full range: -8% to 0%
+  static const double _minValue = -8.0;
   static const double _maxValue = 0.0;
 
   @override
@@ -209,8 +209,8 @@ class ZoneBreakdown extends StatelessWidget {
 
   double _markerPosition(double totalWidth) {
     final clamped = predictedDrawdownPct.clamp(_minValue, _maxValue);
-    // -5 maps to 0, 0 maps to totalWidth
-    final normalized = (clamped - _minValue) / (_maxValue - _minValue);
+    // 0 maps to 0 (left), -8 maps to totalWidth (right)
+    final normalized = (_maxValue - clamped) / (_maxValue - _minValue);
     return (normalized * totalWidth).clamp(0.0, totalWidth);
   }
 
