@@ -12,8 +12,13 @@ import '../../shared/error_widget.dart';
 
 class ReturnsChart extends ConsumerStatefulWidget {
   final String version;
+  final String dataMode; // received from parent
 
-  const ReturnsChart({super.key, required this.version});
+  const ReturnsChart({
+    super.key,
+    required this.version,
+    this.dataMode = 'combined',
+  });
 
   @override
   ConsumerState<ReturnsChart> createState() => _ReturnsChartState();
@@ -21,7 +26,6 @@ class ReturnsChart extends ConsumerStatefulWidget {
 
 class _ReturnsChartState extends ConsumerState<ReturnsChart> {
   String _period = 'weekly';
-  String _dataMode = 'combined';
   String _dateRange = 'all'; // all, 3m, 6m, 1y, 2y
 
   static final _inrFormat = NumberFormat.currency(
@@ -58,7 +62,7 @@ class _ReturnsChartState extends ConsumerState<ReturnsChart> {
   ReturnsParams get _params => (
         version: widget.version,
         period: _period,
-        dataMode: _dataMode,
+        dataMode: widget.dataMode,
         fromDate: _fromDate,
         toDate: null,
       );
@@ -86,10 +90,6 @@ class _ReturnsChartState extends ConsumerState<ReturnsChart> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Data mode toggle (Backtest / Forward / Combined)
-          _buildDataModeToggle(),
-          const SizedBox(height: 12),
-
           // Summary stats card (fresh ₹25L base for each mode)
           if (summary != null) _buildSummaryStats(summary),
           if (summary != null) const SizedBox(height: 12),
@@ -272,78 +272,6 @@ class _ReturnsChartState extends ConsumerState<ReturnsChart> {
 
   Widget _statDivider() {
     return Container(width: 1, height: 24, color: const Color(0xFF30363D));
-  }
-
-  // ── Data Mode Toggle (Backtest / Forward / Combined) ──
-
-  Widget _buildDataModeToggle() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D1117),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF30363D)),
-      ),
-      child: Row(
-        children: [
-          _dataModeButton('Backtest', 'backtest', const Color(0xFFE8833A)),
-          _dataModeButton('Forward', 'forwardtest', const Color(0xFF58A6FF)),
-          _dataModeButton('Combined', 'combined', const Color(0xFF50C878)),
-        ],
-      ),
-    );
-  }
-
-  Widget _dataModeButton(String label, String value, Color accentColor) {
-    final selected = _dataMode == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _dataMode = value),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: selected
-                ? accentColor.withOpacity(0.15)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
-            border: selected
-                ? Border.all(color: accentColor.withOpacity(0.4))
-                : null,
-          ),
-          child: Column(
-            children: [
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: selected ? accentColor : const Color(0xFF8B949E),
-                  fontSize: 12,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
-              if (selected)
-                Text(
-                  _dataModeSubtitle(value),
-                  style: TextStyle(
-                    color: accentColor.withOpacity(0.6),
-                    fontSize: 9,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _dataModeSubtitle(String mode) {
-    switch (mode) {
-      case 'backtest':
-        return 'Before 11 Feb 2026';
-      case 'forwardtest':
-        return 'From 11 Feb 2026';
-      default:
-        return 'All trades';
-    }
   }
 
   // ── Date Range Chips ──

@@ -49,9 +49,17 @@ final returnsProvider =
   },
 );
 
+typedef EquityCurveParams = ({
+  String version,
+  String dataMode,
+});
+
 final equityCurveProvider =
-    FutureProvider.family.autoDispose<List<EquityPoint>, String>(
-  (ref, version) async {
-    return ref.read(apiServiceProvider).getEquityCurve(version);
+    FutureProvider.family.autoDispose<List<EquityPoint>, EquityCurveParams>(
+  (ref, params) async {
+    return ref.read(apiServiceProvider).getEquityCurve(
+          params.version,
+          dataMode: params.dataMode,
+        );
   },
 );

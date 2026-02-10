@@ -7,17 +7,16 @@ enum TradeFilter { all, winners, losers }
 
 enum TradeSort { date, pnl, duration }
 
-/// Forward test start date – trades before this are backtest, from this date are forward test.
-final _forwardTestStart = DateTime(2026, 2, 11);
-
 class TradeList extends StatefulWidget {
   final List<TradeItem> trades;
   final bool isOpen;
+  final String dataMode; // received from parent (filtering already applied)
 
   const TradeList({
     super.key,
     required this.trades,
     this.isOpen = false,
+    this.dataMode = 'combined',
   });
 
   @override
@@ -28,27 +27,11 @@ class _TradeListState extends State<TradeList> {
   TradeFilter _filter = TradeFilter.all;
   TradeSort _sort = TradeSort.date;
   bool _sortAscending = false;
-  String _dataMode = 'combined'; // backtest, forwardtest, combined
 
   List<TradeItem> get _filteredSorted {
     var list = List<TradeItem>.from(widget.trades);
 
-    // Apply data mode filter (backtest vs forward test)
-    if (!widget.isOpen && _dataMode != 'combined') {
-      list = list.where((t) {
-        final entryStr = t.entryDate;
-        if (entryStr == null) return true;
-        final entryDt = DateTime.tryParse(entryStr);
-        if (entryDt == null) return true;
-        if (_dataMode == 'backtest') {
-          return entryDt.isBefore(_forwardTestStart);
-        } else {
-          return !entryDt.isBefore(_forwardTestStart);
-        }
-      }).toList();
-    }
-
-    // Apply filter
+    // Apply winner/loser filter
     switch (_filter) {
       case TradeFilter.winners:
         list = list.where((t) => t.pnl > 0).toList();
@@ -88,14 +71,6 @@ class _TradeListState extends State<TradeList> {
 
     return Column(
       children: [
-        // Data mode toggle (only for closed trades)
-        if (!widget.isOpen) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: _buildDataModeToggle(),
-          ),
-        ],
-
         // Filter and sort controls
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -210,78 +185,6 @@ class _TradeListState extends State<TradeList> {
         ),
       ],
     );
-  }
-
-  // ── Data Mode Toggle ──
-
-  Widget _buildDataModeToggle() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D1117),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF30363D)),
-      ),
-      child: Row(
-        children: [
-          _dataModeButton('Backtest', 'backtest', const Color(0xFFE8833A)),
-          _dataModeButton('Forward', 'forwardtest', const Color(0xFF58A6FF)),
-          _dataModeButton('Combined', 'combined', const Color(0xFF50C878)),
-        ],
-      ),
-    );
-  }
-
-  Widget _dataModeButton(String label, String value, Color accentColor) {
-    final selected = _dataMode == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _dataMode = value),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: selected
-                ? accentColor.withOpacity(0.15)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
-            border: selected
-                ? Border.all(color: accentColor.withOpacity(0.4))
-                : null,
-          ),
-          child: Column(
-            children: [
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: selected ? accentColor : const Color(0xFF8B949E),
-                  fontSize: 12,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
-              if (selected)
-                Text(
-                  _dataModeSubtitle(value),
-                  style: TextStyle(
-                    color: accentColor.withOpacity(0.6),
-                    fontSize: 9,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _dataModeSubtitle(String mode) {
-    switch (mode) {
-      case 'backtest':
-        return 'Before 11 Feb 2026';
-      case 'forwardtest':
-        return 'From 11 Feb 2026';
-      default:
-        return 'All trades';
-    }
   }
 
   String _sortLabel() {

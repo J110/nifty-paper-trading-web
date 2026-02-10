@@ -15,6 +15,9 @@ import 'widgets/trade_list.dart';
 import 'widgets/delay_analysis_view.dart';
 import 'widgets/returns_chart.dart';
 
+/// Forward test start date (shared constant).
+final forwardTestStart = DateTime(2026, 2, 11);
+
 class TradesPage extends ConsumerWidget {
   final String version;
 
@@ -23,7 +26,6 @@ class TradesPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tradesAsync = ref.watch(tradesProvider(version));
-    final equityAsync = ref.watch(equityCurveProvider(version));
     final accentColor = AppTheme.versionColor(version);
     final label = AppConstants.versionLabels[version] ?? version;
 
@@ -38,34 +40,33 @@ class TradesPage extends ConsumerWidget {
         label: label,
         accentColor: accentColor,
         trades: trades,
-        equityAsync: equityAsync,
       ),
     );
   }
 }
 
-class _TradesPageContent extends StatefulWidget {
+class _TradesPageContent extends ConsumerStatefulWidget {
   final String version;
   final String label;
   final Color accentColor;
   final TradesResponse trades;
-  final AsyncValue<List<EquityPoint>> equityAsync;
 
   const _TradesPageContent({
     required this.version,
     required this.label,
     required this.accentColor,
     required this.trades,
-    required this.equityAsync,
   });
 
   @override
-  State<_TradesPageContent> createState() => _TradesPageContentState();
+  ConsumerState<_TradesPageContent> createState() =>
+      _TradesPageContentState();
 }
 
-class _TradesPageContentState extends State<_TradesPageContent>
+class _TradesPageContentState extends ConsumerState<_TradesPageContent>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  String _dataMode = 'combined'; // shared across all sections
 
   @override
   void initState() {
@@ -79,9 +80,73 @@ class _TradesPageContentState extends State<_TradesPageContent>
     super.dispose();
   }
 
+  /// Filter trades by data mode (backtest/forward/combined).
+  List<TradeItem> _filterTrades(List<TradeItem> trades) {
+    if (_dataMode == 'combined') return trades;
+    return trades.where((t) {
+      final entryStr = t.entryDate;
+      if (entryStr == null) return true;
+      final entryDt = DateTime.tryParse(entryStr);
+      if (entryDt == null) return true;
+      if (_dataMode == 'backtest') {
+        return entryDt.isBefore(forwardTestStart);
+      } else {
+        return !entryDt.isBefore(forwardTestStart);
+      }
+    }).toList();
+  }
+
+  /// Compute portfolio stats from a filtered list of closed trades.
+  Portfolio _computeFilteredPortfolio(List<TradeItem> closedTrades) {
+    const startingCapital = AppConstants.initialCapital;
+    final trades = closedTrades.where((t) => t.realizedPnl != null).toList();
+    final totalPnl =
+        trades.fold(0.0, (sum, t) => sum + (t.realizedPnl ?? 0));
+    final winners = trades.where((t) => t.realizedPnl! > 0).toList();
+    final losers = trades.where((t) => t.realizedPnl! < 0).toList();
+    final winningPnl =
+        winners.fold(0.0, (sum, t) => sum + (t.realizedPnl ?? 0));
+    final losingPnl =
+        losers.fold(0.0, (sum, t) => sum + (t.realizedPnl ?? 0));
+
+    return Portfolio(
+      startingCapital: startingCapital,
+      currentCapital: startingCapital + totalPnl,
+      totalPnl: totalPnl,
+      totalReturnPct: totalPnl / startingCapital * 100,
+      realizedPnl: totalPnl,
+      unrealizedPnl: 0,
+      deployedCapital: 0,
+      availableCapital: startingCapital + totalPnl,
+      openPositions: 0,
+      closedPositions: trades.length,
+      totalTrades: trades.length,
+      winRate: trades.isNotEmpty
+          ? winners.length / trades.length * 100
+          : 0,
+      avgPnl: trades.isNotEmpty ? totalPnl / trades.length : 0,
+      profitFactor: losingPnl != 0
+          ? winningPnl / losingPnl.abs()
+          : (winningPnl > 0 ? 999.0 : 0),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final trades = widget.trades;
+
+    // Filter trades by data mode
+    final filteredOpen = _filterTrades(trades.openTrades);
+    final filteredClosed = _filterTrades(trades.closedTrades);
+
+    // Compute portfolio: use API data for combined, compute client-side for filtered
+    final portfolio = _dataMode == 'combined'
+        ? trades.portfolio
+        : _computeFilteredPortfolio(filteredClosed);
+
+    // Equity curve with data mode
+    final equityParams = (version: widget.version, dataMode: _dataMode);
+    final equityAsync = ref.watch(equityCurveProvider(equityParams));
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D1117),
@@ -134,19 +199,28 @@ class _TradesPageContentState extends State<_TradesPageContent>
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
+            // Data mode toggle (shared across all tabs)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: _buildDataModeToggle(),
+              ),
+            ),
+            // Portfolio summary (respects data mode)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 child: PortfolioSummary(
-                  portfolio: trades.portfolio,
+                  portfolio: portfolio,
                   accentColor: widget.accentColor,
                 ),
               ),
             ),
+            // Equity curve (respects data mode via provider)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: _buildEquityCurveSection(),
+                child: _buildEquityCurveSection(equityAsync),
               ),
             ),
           ];
@@ -155,30 +229,110 @@ class _TradesPageContentState extends State<_TradesPageContent>
           controller: _tabController,
           children: [
             // Open Trades tab
-            trades.openTrades.isEmpty
+            filteredOpen.isEmpty
                 ? _buildEmptyState('No open trades')
                 : TradeList(
-                    trades: trades.openTrades,
+                    trades: filteredOpen,
                     isOpen: true,
+                    dataMode: _dataMode,
                   ),
             // Closed Trades tab
-            trades.closedTrades.isEmpty
+            filteredClosed.isEmpty
                 ? _buildEmptyState('No closed trades yet')
                 : TradeList(
-                    trades: trades.closedTrades,
+                    trades: filteredClosed,
                     isOpen: false,
+                    dataMode: _dataMode,
                   ),
             // Delay Analysis tab
-            DelayAnalysisView(version: widget.version),
+            DelayAnalysisView(
+              version: widget.version,
+              dataMode: _dataMode,
+            ),
             // Returns tab
-            ReturnsChart(version: widget.version),
+            ReturnsChart(
+              version: widget.version,
+              dataMode: _dataMode,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildEquityCurveSection() {
+  // ── Data Mode Toggle (shared) ──
+
+  Widget _buildDataModeToggle() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1117),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF30363D)),
+      ),
+      child: Row(
+        children: [
+          _dataModeButton('Backtest', 'backtest', const Color(0xFFE8833A)),
+          _dataModeButton('Forward', 'forwardtest', const Color(0xFF58A6FF)),
+          _dataModeButton('Combined', 'combined', const Color(0xFF50C878)),
+        ],
+      ),
+    );
+  }
+
+  Widget _dataModeButton(String label, String value, Color accentColor) {
+    final selected = _dataMode == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _dataMode = value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: selected
+                ? accentColor.withOpacity(0.15)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+            border: selected
+                ? Border.all(color: accentColor.withOpacity(0.4))
+                : null,
+          ),
+          child: Column(
+            children: [
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: selected ? accentColor : const Color(0xFF8B949E),
+                  fontSize: 12,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+              if (selected)
+                Text(
+                  _dataModeSubtitle(value),
+                  style: TextStyle(
+                    color: accentColor.withOpacity(0.6),
+                    fontSize: 9,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _dataModeSubtitle(String mode) {
+    switch (mode) {
+      case 'backtest':
+        return 'Before 11 Feb 2026';
+      case 'forwardtest':
+        return 'From 11 Feb 2026';
+      default:
+        return 'All trades';
+    }
+  }
+
+  Widget _buildEquityCurveSection(AsyncValue<List<EquityPoint>> equityAsync) {
     return Container(
       height: 200,
       decoration: BoxDecoration(
@@ -200,7 +354,7 @@ class _TradesPageContentState extends State<_TradesPageContent>
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: widget.equityAsync.when(
+            child: equityAsync.when(
               loading: () => const Center(
                 child: SizedBox(
                   width: 24,

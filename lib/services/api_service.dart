@@ -122,8 +122,14 @@ class ApiService {
     return data.map((e) => DrawdownPoint.fromJson(e)).toList();
   }
 
-  Future<List<EquityPoint>> getEquityCurve(String version) async {
-    final resp = await _dio.get(ApiConfig.chartEquity(version));
+  Future<List<EquityPoint>> getEquityCurve(
+    String version, {
+    String dataMode = 'combined',
+  }) async {
+    final resp = await _dio.get(
+      ApiConfig.chartEquity(version),
+      queryParameters: {'data_mode': dataMode},
+    );
     final data = resp.data['equity_curve'] as List? ?? [];
     return data.map((e) => EquityPoint.fromJson(e)).toList();
   }

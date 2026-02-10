@@ -12,8 +12,13 @@ import '../../shared/error_widget.dart';
 
 class DelayAnalysisView extends ConsumerStatefulWidget {
   final String version;
+  final String dataMode; // received from parent
 
-  const DelayAnalysisView({super.key, required this.version});
+  const DelayAnalysisView({
+    super.key,
+    required this.version,
+    this.dataMode = 'combined',
+  });
 
   @override
   ConsumerState<DelayAnalysisView> createState() => _DelayAnalysisViewState();
@@ -21,7 +26,6 @@ class DelayAnalysisView extends ConsumerStatefulWidget {
 
 class _DelayAnalysisViewState extends ConsumerState<DelayAnalysisView> {
   bool _showPerTrade = false;
-  String _dataMode = 'combined';
 
   static final _inrFormat = NumberFormat.currency(
     locale: 'en_IN',
@@ -31,7 +35,7 @@ class _DelayAnalysisViewState extends ConsumerState<DelayAnalysisView> {
 
   DelayParams get _params => (
         version: widget.version,
-        dataMode: _dataMode,
+        dataMode: widget.dataMode,
       );
 
   @override
@@ -104,10 +108,6 @@ class _DelayAnalysisViewState extends ConsumerState<DelayAnalysisView> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
-
-          // Data mode toggle (Backtest / Forward / Combined)
-          _buildDataModeToggle(),
           const SizedBox(height: 12),
 
           // Toggle and best delay header
@@ -228,78 +228,6 @@ class _DelayAnalysisViewState extends ConsumerState<DelayAnalysisView> {
         ],
       ),
     );
-  }
-
-  // ── Data Mode Toggle ──
-
-  Widget _buildDataModeToggle() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D1117),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF30363D)),
-      ),
-      child: Row(
-        children: [
-          _dataModeButton('Backtest', 'backtest', const Color(0xFFE8833A)),
-          _dataModeButton('Forward', 'forwardtest', const Color(0xFF58A6FF)),
-          _dataModeButton('Combined', 'combined', const Color(0xFF50C878)),
-        ],
-      ),
-    );
-  }
-
-  Widget _dataModeButton(String label, String value, Color accentColor) {
-    final selected = _dataMode == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _dataMode = value),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: selected
-                ? accentColor.withOpacity(0.15)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
-            border: selected
-                ? Border.all(color: accentColor.withOpacity(0.4))
-                : null,
-          ),
-          child: Column(
-            children: [
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: selected ? accentColor : const Color(0xFF8B949E),
-                  fontSize: 12,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
-              if (selected)
-                Text(
-                  _dataModeSubtitle(value),
-                  style: TextStyle(
-                    color: accentColor.withOpacity(0.6),
-                    fontSize: 9,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _dataModeSubtitle(String mode) {
-    switch (mode) {
-      case 'backtest':
-        return 'Before 11 Feb 2026';
-      case 'forwardtest':
-        return 'From 11 Feb 2026';
-      default:
-        return 'All trades';
-    }
   }
 
   // ── Aggregate / Per Trade Toggle ──
