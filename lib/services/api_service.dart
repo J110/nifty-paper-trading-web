@@ -75,11 +75,23 @@ class ApiService {
   }
 
   // ── Returns ──
-  Future<ReturnsResponse> getReturns(String version,
-      {String period = 'weekly'}) async {
+  Future<ReturnsResponse> getReturns(
+    String version, {
+    String period = 'weekly',
+    String dataMode = 'combined',
+    String? fromDate,
+    String? toDate,
+  }) async {
+    final params = <String, dynamic>{
+      'period': period,
+      'data_mode': dataMode,
+    };
+    if (fromDate != null) params['from_date'] = fromDate;
+    if (toDate != null) params['to_date'] = toDate;
+
     final resp = await _dio.get(
       ApiConfig.returns(version),
-      queryParameters: {'period': period},
+      queryParameters: params,
     );
     return ReturnsResponse.fromJson(resp.data);
   }

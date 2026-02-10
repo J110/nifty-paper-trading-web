@@ -100,16 +100,20 @@ class _TradeCardState extends State<TradeCard>
                   ),
                   const SizedBox(height: 8),
 
-                  // Row 3: Lots, Credit, PnL
+                  // Row 3: Lots, Margin, Total Credit, PnL
                   Row(
                     children: [
                       _chip('${trade.numLots} lot${trade.numLots > 1 ? 's' : ''}'),
-                      const SizedBox(width: 8),
-                      if (trade.creditReceived != null) ...[
+                      const SizedBox(width: 6),
+                      if (trade.capitalDeployed != null) ...[
+                        _chip(_compactInr(trade.capitalDeployed!)),
+                        const SizedBox(width: 6),
+                      ],
+                      if (trade.totalCredit != null) ...[
                         _chip(
-                          'Cr ${_inrFormat.format(trade.creditReceived)}',
+                          'Cr ${_inrFormat.format(trade.totalCredit)}',
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                       ],
                       const Spacer(),
                       // PnL display
@@ -319,6 +323,18 @@ class _TradeCardState extends State<TradeCard>
         ),
       ),
     );
+  }
+
+  /// Format large INR amounts compactly: 4,95,000 → ₹4.95L, 12,00,000 → ₹12L
+  String _compactInr(double value) {
+    final abs = value.abs();
+    if (abs >= 1e7) {
+      return '\u20B9${(value / 1e7).toStringAsFixed(1)}Cr';
+    } else if (abs >= 1e5) {
+      final lakhs = value / 1e5;
+      return '\u20B9${lakhs.toStringAsFixed(lakhs == lakhs.roundToDouble() ? 0 : 1)}L';
+    }
+    return _inrFormat.format(value);
   }
 
   Widget _chip(String text) {

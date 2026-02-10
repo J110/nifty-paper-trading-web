@@ -20,14 +20,24 @@ final delayAnalysisProvider =
   },
 );
 
-typedef ReturnsParams = ({String version, String period});
+typedef ReturnsParams = ({
+  String version,
+  String period,
+  String dataMode,
+  String? fromDate,
+  String? toDate,
+});
 
 final returnsProvider =
     FutureProvider.family.autoDispose<ReturnsResponse, ReturnsParams>(
   (ref, params) async {
-    return ref
-        .read(apiServiceProvider)
-        .getReturns(params.version, period: params.period);
+    return ref.read(apiServiceProvider).getReturns(
+          params.version,
+          period: params.period,
+          dataMode: params.dataMode,
+          fromDate: params.fromDate,
+          toDate: params.toDate,
+        );
   },
 );
 
