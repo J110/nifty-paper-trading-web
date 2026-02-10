@@ -79,6 +79,7 @@ class _ReturnsChartState extends ConsumerState<ReturnsChart> {
 
   Widget _buildContent(ReturnsResponse response) {
     final returns = response.returns;
+    final summary = response.summary;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -88,6 +89,10 @@ class _ReturnsChartState extends ConsumerState<ReturnsChart> {
           // Data mode toggle (Backtest / Forward / Combined)
           _buildDataModeToggle(),
           const SizedBox(height: 12),
+
+          // Summary stats card (fresh ₹25L base for each mode)
+          if (summary != null) _buildSummaryStats(summary),
+          if (summary != null) const SizedBox(height: 12),
 
           // Period + Date range row
           Row(
@@ -124,7 +129,7 @@ class _ReturnsChartState extends ConsumerState<ReturnsChart> {
             ),
             const SizedBox(height: 16),
 
-            // Summary table
+            // Period breakdown table
             _buildSummaryTable(returns),
           ],
 
@@ -144,6 +149,129 @@ class _ReturnsChartState extends ConsumerState<ReturnsChart> {
         ],
       ),
     );
+  }
+
+  // ── Summary Stats Card ──
+
+  Widget _buildSummaryStats(ReturnsSummary s) {
+    final pnlColor = AppTheme.pnlColor(s.totalPnl);
+    final sign = s.totalPnl >= 0 ? '+' : '';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF161B22),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF30363D)),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // P&L headline
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '$sign${_inrFormat.format(s.totalPnl)}',
+                style: TextStyle(
+                  color: pnlColor,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: pnlColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '$sign${s.totalReturnPct.toStringAsFixed(2)}%',
+                  style: TextStyle(
+                    color: pnlColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'on ${_inrFormat.format(s.startingCapital)}',
+                style: TextStyle(
+                  color: Colors.grey.shade500,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Stats row
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0D1117),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                _statItem(
+                  'Win Rate',
+                  '${s.winRate.toStringAsFixed(1)}%',
+                  s.winRate >= 50 ? AppTheme.profit : AppTheme.loss,
+                ),
+                _statDivider(),
+                _statItem('Trades', '${s.totalTrades}', null),
+                _statDivider(),
+                _statItem(
+                  'PF',
+                  s.profitFactor >= 999
+                      ? '\u221E'
+                      : s.profitFactor.toStringAsFixed(2),
+                  s.profitFactor >= 1.0 ? AppTheme.profit : AppTheme.loss,
+                ),
+                _statDivider(),
+                _statItem(
+                  'Avg P&L',
+                  _inrFormat.format(s.avgPnl),
+                  AppTheme.pnlColor(s.avgPnl),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statItem(String label, String value, Color? valueColor) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              color: valueColor ?? const Color(0xFFC9D1D9),
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.grey.shade500,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statDivider() {
+    return Container(width: 1, height: 24, color: const Color(0xFF30363D));
   }
 
   // ── Data Mode Toggle (Backtest / Forward / Combined) ──
