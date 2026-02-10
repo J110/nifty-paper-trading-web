@@ -112,6 +112,16 @@ class ApiService {
     return (resp.data as List).map((e) => OhlcCandle.fromJson(e)).toList();
   }
 
+  Future<List<DrawdownPoint>> getDrawdownComparison(
+      {String period = '6m'}) async {
+    final resp = await _dio.get(
+      ApiConfig.chartDrawdownComparison,
+      queryParameters: {'period': period},
+    );
+    final data = resp.data['data'] as List? ?? [];
+    return data.map((e) => DrawdownPoint.fromJson(e)).toList();
+  }
+
   Future<List<EquityPoint>> getEquityCurve(String version) async {
     final resp = await _dio.get(ApiConfig.chartEquity(version));
     final data = resp.data['equity_curve'] as List? ?? [];

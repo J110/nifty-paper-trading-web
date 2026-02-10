@@ -15,6 +15,7 @@ import 'widgets/prediction_gauge.dart';
 import 'widgets/zone_breakdown.dart';
 import 'widgets/indicator_grid.dart';
 import 'widgets/version_signal_cards.dart';
+import 'widgets/drawdown_comparison_chart.dart';
 
 /// Formats a number using Indian numbering system (e.g., 25,00,000).
 String formatIndianCurrency(double value) {
@@ -98,6 +99,12 @@ class _SignalsContent extends ConsumerWidget {
 
           // ------ 1b. Nifty Sparkline Chart with Period Selector ------
           const _NiftyChartSection(),
+          const SizedBox(height: 20),
+
+          // ------ 1c. Predicted vs Actual Drawdown ------
+          _SectionTitle(title: 'Model Accuracy'),
+          const SizedBox(height: 8),
+          const DrawdownComparisonSection(),
           const SizedBox(height: 20),
 
           // ------ 2. Model Prediction ------

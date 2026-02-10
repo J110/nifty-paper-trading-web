@@ -15,5 +15,7 @@ class ApiConfig {
   static const String chartNifty = '/api/chart-data/nifty';
   static String chartEquity(String version) =>
       '/api/chart-data/equity/$version';
+  static const String chartDrawdownComparison =
+      '/api/chart-data/drawdown-comparison';
   static const String indicators = '/api/indicators';
 }

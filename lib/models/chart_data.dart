@@ -29,6 +29,34 @@ class OhlcCandle {
   }
 }
 
+class DrawdownPoint {
+  final String date;
+  final double predictedDrawdownPct;
+  final double? actualDrawdownPct;
+  final double niftyClose;
+  final bool isPartial;
+
+  DrawdownPoint({
+    required this.date,
+    required this.predictedDrawdownPct,
+    this.actualDrawdownPct,
+    required this.niftyClose,
+    this.isPartial = false,
+  });
+
+  factory DrawdownPoint.fromJson(Map<String, dynamic> json) {
+    return DrawdownPoint(
+      date: json['date'] ?? '',
+      predictedDrawdownPct:
+          (json['predicted_drawdown_pct'] as num?)?.toDouble() ?? 0,
+      actualDrawdownPct:
+          (json['actual_drawdown_pct'] as num?)?.toDouble(),
+      niftyClose: (json['nifty_close'] as num?)?.toDouble() ?? 0,
+      isPartial: json['is_partial'] ?? false,
+    );
+  }
+}
+
 class EquityPoint {
   final String date;
   final double capital;

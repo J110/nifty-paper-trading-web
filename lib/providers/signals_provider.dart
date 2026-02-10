@@ -24,6 +24,13 @@ final signalsAutoRefreshProvider =
   }
 });
 
+/// Predicted vs actual drawdown comparison — parameterised by period
+final drawdownComparisonProvider =
+    FutureProvider.autoDispose.family<List<DrawdownPoint>, String>((ref, period) async {
+  final api = ref.read(apiServiceProvider);
+  return api.getDrawdownComparison(period: period);
+});
+
 /// Nifty price chart data — parameterised by period
 final niftyChartProvider =
     FutureProvider.autoDispose.family<List<OhlcCandle>, String>((ref, period) async {
