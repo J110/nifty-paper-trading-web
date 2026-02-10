@@ -9,12 +9,43 @@ import '../models/chart_data.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
 
+/// Friendly error message for common Dio failures
+String friendlyError(Object error) {
+  if (error is DioException) {
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.receiveTimeout:
+      case DioExceptionType.sendTimeout:
+        return 'Server is waking up (free tier cold start). This takes ~30s on first load. Please tap Retry.';
+      case DioExceptionType.connectionError:
+        return 'Cannot connect to server. Check your internet connection or try again in a moment.';
+      case DioExceptionType.badResponse:
+        final code = error.response?.statusCode ?? 0;
+        if (code == 502 || code == 503) {
+          return 'Server is starting up. Please wait a moment and tap Retry.';
+        }
+        return 'Server error ($code). Please try again.';
+      default:
+        return 'Connection failed. Tap Retry to try again.';
+    }
+  }
+  return 'Something went wrong. Tap Retry to try again.';
+}
+
 class ApiService {
-  final Dio _dio = Dio(BaseOptions(
-    baseUrl: ApiConfig.baseUrl,
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 15),
-  ));
+  late final Dio _dio;
+
+  ApiService() {
+    _dio = Dio(BaseOptions(
+      baseUrl: ApiConfig.baseUrl,
+      // Render free tier cold start can take 30-60s
+      connectTimeout: const Duration(seconds: 60),
+      receiveTimeout: const Duration(seconds: 60),
+    ));
+
+    // Retry interceptor: auto-retry on timeout/5xx up to 2 times
+    _dio.interceptors.add(_RetryInterceptor(_dio));
+  }
 
   // ── Signals ──
   Future<SignalResponse> getCurrentSignals() async {
@@ -67,5 +98,47 @@ class ApiService {
     final resp = await _dio.get(ApiConfig.chartEquity(version));
     final data = resp.data['equity_curve'] as List? ?? [];
     return data.map((e) => EquityPoint.fromJson(e)).toList();
+  }
+}
+
+/// Dio interceptor that retries failed requests on timeout or 5xx errors.
+class _RetryInterceptor extends Interceptor {
+  final Dio _dio;
+  static const int _maxRetries = 2;
+  static const Duration _retryDelay = Duration(seconds: 3);
+
+  _RetryInterceptor(this._dio);
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) async {
+    final retryCount = err.requestOptions.extra['retryCount'] ?? 0;
+
+    final shouldRetry = retryCount < _maxRetries &&
+        (err.type == DioExceptionType.connectionTimeout ||
+            err.type == DioExceptionType.receiveTimeout ||
+            err.type == DioExceptionType.sendTimeout ||
+            err.type == DioExceptionType.connectionError ||
+            (err.response?.statusCode != null &&
+                err.response!.statusCode! >= 500));
+
+    if (shouldRetry) {
+      await Future.delayed(_retryDelay * (retryCount + 1));
+
+      final options = err.requestOptions;
+      options.extra['retryCount'] = retryCount + 1;
+
+      try {
+        final response = await _dio.fetch(options);
+        handler.resolve(response);
+        return;
+      } catch (e) {
+        if (e is DioException) {
+          handler.next(e);
+          return;
+        }
+      }
+    }
+
+    handler.next(err);
   }
 }

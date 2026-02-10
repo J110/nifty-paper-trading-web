@@ -6,6 +6,7 @@ import '../../config/constants.dart';
 import '../../models/trade.dart';
 import '../../models/chart_data.dart';
 import '../../providers/trades_provider.dart';
+import '../../services/api_service.dart' show friendlyError;
 import '../shared/loading_widget.dart';
 import '../shared/error_widget.dart';
 import 'widgets/portfolio_summary.dart';
@@ -29,7 +30,7 @@ class TradesPage extends ConsumerWidget {
     return tradesAsync.when(
       loading: () => const LoadingWidget(message: 'Loading trades...'),
       error: (err, _) => AppErrorWidget(
-        message: 'Failed to load trades: $err',
+        message: friendlyError(err),
         onRetry: () => ref.invalidate(tradesProvider(version)),
       ),
       data: (trades) => _TradesPageContent(

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../config/theme.dart';
 import '../../../models/returns.dart';
 import '../../../providers/trades_provider.dart';
+import '../../../services/api_service.dart' show friendlyError;
 import '../../shared/loading_widget.dart';
 import '../../shared/error_widget.dart';
 
@@ -37,7 +38,7 @@ class _ReturnsChartState extends ConsumerState<ReturnsChart> {
     return asyncData.when(
       loading: () => const LoadingWidget(message: 'Loading returns...'),
       error: (err, _) => AppErrorWidget(
-        message: 'Failed to load returns: $err',
+        message: friendlyError(err),
         onRetry: () => ref.invalidate(returnsProvider(_params)),
       ),
       data: (response) => _buildContent(response),

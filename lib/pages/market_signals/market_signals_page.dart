@@ -8,6 +8,7 @@ import '../../models/signal.dart';
 import '../../models/chart_data.dart';
 import '../../config/theme.dart';
 import '../../providers/signals_provider.dart';
+import '../../services/api_service.dart' show friendlyError;
 import '../shared/loading_widget.dart';
 import '../shared/error_widget.dart';
 import 'widgets/prediction_gauge.dart';
@@ -72,7 +73,7 @@ class MarketSignalsPage extends ConsumerWidget {
         ),
       ),
       error: (error, _) => AppErrorWidget(
-        message: 'Failed to load signals: $error',
+        message: friendlyError(error),
         onRetry: () => ref.invalidate(signalsAutoRefreshProvider),
       ),
       data: (signal) => _SignalsContent(signal: signal),

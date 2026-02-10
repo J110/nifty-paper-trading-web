@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../config/theme.dart';
 import '../../../models/delay_analysis.dart';
 import '../../../providers/trades_provider.dart';
+import '../../../services/api_service.dart' show friendlyError;
 import '../../shared/loading_widget.dart';
 import '../../shared/error_widget.dart';
 
@@ -35,7 +36,7 @@ class _DelayAnalysisViewState extends ConsumerState<DelayAnalysisView> {
     return asyncData.when(
       loading: () => const LoadingWidget(message: 'Loading delay analysis...'),
       error: (err, _) => AppErrorWidget(
-        message: 'Failed to load delay analysis: $err',
+        message: friendlyError(err),
         onRetry: () =>
             ref.invalidate(delayAnalysisProvider(widget.version)),
       ),

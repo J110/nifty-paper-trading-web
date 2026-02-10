@@ -10,6 +10,9 @@ class AppErrorWidget extends StatelessWidget {
     this.onRetry,
   });
 
+  bool get _isColdStart =>
+      message.contains('waking up') || message.contains('starting up');
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -19,9 +22,11 @@ class AppErrorWidget extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.error_outline,
+              _isColdStart ? Icons.cloud_queue : Icons.error_outline,
               size: 48,
-              color: Colors.red.shade400,
+              color: _isColdStart
+                  ? const Color(0xFF58A6FF)
+                  : Colors.red.shade400,
             ),
             const SizedBox(height: 16),
             Text(
@@ -34,9 +39,11 @@ class AppErrorWidget extends StatelessWidget {
               ElevatedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('Retry'),
+                label: Text(_isColdStart ? 'Try Again' : 'Retry'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF21262D),
+                  backgroundColor: _isColdStart
+                      ? const Color(0xFF1F6FEB)
+                      : const Color(0xFF21262D),
                 ),
               ),
             ],
