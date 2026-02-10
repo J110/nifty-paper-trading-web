@@ -119,6 +119,13 @@ class TradeItem {
   final double? graduatedMult;
   final double? capitalDeployed;
   final int? holdingDays;
+  // Bear debit fields (v6.2+)
+  final bool isBearDebit;
+  final int bearTier;
+  final double? entryDebit;
+  final double? predictedDrawdown;
+  final double? maxProfit;
+  final double? maxLossAmount;
 
   TradeItem({
     required this.tradeId,
@@ -152,6 +159,12 @@ class TradeItem {
     this.graduatedMult,
     this.capitalDeployed,
     this.holdingDays,
+    this.isBearDebit = false,
+    this.bearTier = 0,
+    this.entryDebit,
+    this.predictedDrawdown,
+    this.maxProfit,
+    this.maxLossAmount,
   });
 
   factory TradeItem.fromJson(Map<String, dynamic> json) {
@@ -187,6 +200,12 @@ class TradeItem {
       graduatedMult: (json['graduated_mult'] as num?)?.toDouble(),
       capitalDeployed: (json['capital_deployed'] as num?)?.toDouble(),
       holdingDays: json['holding_days'],
+      isBearDebit: json['is_bear_debit'] ?? false,
+      bearTier: json['bear_tier'] ?? 0,
+      entryDebit: (json['entry_debit'] as num?)?.toDouble(),
+      predictedDrawdown: (json['predicted_drawdown'] as num?)?.toDouble(),
+      maxProfit: (json['max_profit'] as num?)?.toDouble(),
+      maxLossAmount: (json['max_loss_amount'] as num?)?.toDouble(),
     );
   }
 
@@ -200,6 +219,8 @@ class TradeItem {
         return 'Bull Put';
       case 'iron_condor':
         return 'Iron Condor';
+      case 'bear_put_debit':
+        return 'Bear Put Debit';
       default:
         return tradeType;
     }

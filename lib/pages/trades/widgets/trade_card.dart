@@ -37,6 +37,7 @@ class _TradeCardState extends State<TradeCard>
     final pnlSign = pnl >= 0 ? '+' : '';
     final isClosed = trade.status == 'closed';
     final isIronCondor = trade.tradeType == 'iron_condor';
+    final isBearDebit = trade.isBearDebit;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -60,6 +61,10 @@ class _TradeCardState extends State<TradeCard>
                   Row(
                     children: [
                       _entryModeBadge(trade.entryMode),
+                      if (isBearDebit && trade.bearTier > 0) ...[
+                        const SizedBox(width: 4),
+                        _bearTierBadge(trade.bearTier),
+                      ],
                       const SizedBox(width: 8),
                       Text(
                         trade.tradeTypeDisplay,
@@ -100,7 +105,7 @@ class _TradeCardState extends State<TradeCard>
                   ),
                   const SizedBox(height: 8),
 
-                  // Row 3: Lots, Margin, Total Credit, PnL
+                  // Row 3: Lots, Margin, Total Credit/Debit, PnL
                   Row(
                     children: [
                       _chip('${trade.numLots} lot${trade.numLots > 1 ? 's' : ''}'),
@@ -109,7 +114,12 @@ class _TradeCardState extends State<TradeCard>
                         _chip(_compactInr(trade.capitalDeployed!)),
                         const SizedBox(width: 6),
                       ],
-                      if (trade.totalCredit != null) ...[
+                      if (isBearDebit && trade.entryDebit != null) ...[
+                        _chip(
+                          'Dr ${_inrFormatDecimal.format(trade.entryDebit! * trade.numLots * 25)}',
+                        ),
+                        const SizedBox(width: 6),
+                      ] else if (trade.totalCredit != null) ...[
                         _chip(
                           'Cr ${_inrFormat.format(trade.totalCredit)}',
                         ),
@@ -151,9 +161,11 @@ class _TradeCardState extends State<TradeCard>
                   ),
 
                   // PnL progress bar (only for open trades)
-                  if (!isClosed && trade.creditReceived != null) ...[
+                  if (!isClosed && (trade.creditReceived != null || isBearDebit)) ...[
                     const SizedBox(height: 8),
-                    _pnlProgressBar(trade),
+                    isBearDebit
+                        ? _bearDebitProgressBar(trade)
+                        : _pnlProgressBar(trade),
                   ],
                 ],
               ),
@@ -186,11 +198,37 @@ class _TradeCardState extends State<TradeCard>
             if (trade.entryTime != null)
               _detailRow('Entry Time', trade.entryTime!),
             if (trade.expiry != null) _detailRow('Expiry', trade.expiry!),
-            if (trade.totalCredit != null)
-              _detailRow(
-                'Total Credit',
-                _inrFormatDecimal.format(trade.totalCredit),
-              ),
+            if (trade.isBearDebit) ...[
+              if (trade.entryDebit != null)
+                _detailRow(
+                  'Entry Debit',
+                  _inrFormatDecimal.format(trade.entryDebit! * trade.numLots * 25),
+                ),
+              if (trade.maxProfit != null)
+                _detailRow(
+                  'Max Profit',
+                  _inrFormat.format(trade.maxProfit),
+                  valueColor: AppTheme.profit,
+                ),
+              if (trade.maxLossAmount != null)
+                _detailRow(
+                  'Max Loss',
+                  _inrFormat.format(trade.maxLossAmount),
+                  valueColor: AppTheme.loss,
+                ),
+              if (trade.predictedDrawdown != null)
+                _detailRow(
+                  'Pred. Drawdown',
+                  '${(trade.predictedDrawdown! * 100).toStringAsFixed(2)}%',
+                ),
+              _detailRow('Bear Tier', 'T${trade.bearTier}'),
+            ] else ...[
+              if (trade.totalCredit != null)
+                _detailRow(
+                  'Total Credit',
+                  _inrFormatDecimal.format(trade.totalCredit),
+                ),
+            ],
             if (trade.capitalDeployed != null)
               _detailRow(
                 'Capital Deployed',
@@ -302,6 +340,10 @@ class _TradeCardState extends State<TradeCard>
         badgeColor = const Color(0xFF9B59B6);
         label = 'VIX';
         break;
+      case 'bear_debit':
+        badgeColor = const Color(0xFFE5534B);
+        label = 'BEAR';
+        break;
       default:
         badgeColor = const Color(0xFF58A6FF);
         label = 'STD';
@@ -394,9 +436,88 @@ class _TradeCardState extends State<TradeCard>
       final callBuy = trade.icCallBuy?.toStringAsFixed(0) ?? '?';
       return 'S $putSell / B $putBuy PE  |  S $callSell / B $callBuy CE';
     }
+    if (trade.isBearDebit) {
+      // Bear debit: buy higher strike (near ATM), sell lower strike (OTM)
+      final buy = trade.buyStrike?.toStringAsFixed(0) ?? '?';
+      final sell = trade.sellStrike?.toStringAsFixed(0) ?? '?';
+      return 'Buy $buy PE  /  Sell $sell PE';
+    }
     final sell = trade.sellStrike?.toStringAsFixed(0) ?? '?';
     final buy = trade.buyStrike?.toStringAsFixed(0) ?? '?';
     return 'Sell $sell PE  /  Buy $buy PE';
+  }
+
+  Widget _bearTierBadge(int tier) {
+    final color = tier == 1
+        ? const Color(0xFFB71C1C)  // deep red for strong
+        : const Color(0xFFEF5350); // lighter red for moderate
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Text(
+        'T$tier',
+        style: TextStyle(
+          color: color,
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _bearDebitProgressBar(TradeItem trade) {
+    final debit = trade.entryDebit ?? 0;
+    if (debit <= 0) return const SizedBox.shrink();
+    final currentPnl = trade.currentPnl ?? 0;
+    final maxProfit = trade.maxProfit ?? (debit * trade.numLots * 25 * 2);
+    // Progress: 0 = max loss (lost debit), 1 = profit target (2x)
+    final progress = maxProfit > 0
+        ? (currentPnl / maxProfit).clamp(-1.0, 1.0)
+        : 0.0;
+    final normalized = ((progress + 1) / 2).clamp(0.0, 1.0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'P&L vs max profit',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 10),
+            ),
+            const Spacer(),
+            Text(
+              '${(progress * 100).toStringAsFixed(0)}%',
+              style: TextStyle(
+                color: AppTheme.pnlColor(currentPnl),
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 3),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: SizedBox(
+            height: 4,
+            child: LinearProgressIndicator(
+              value: normalized,
+              backgroundColor: AppTheme.loss.withOpacity(0.2),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                currentPnl >= 0
+                    ? AppTheme.profit.withOpacity(0.7)
+                    : AppTheme.loss.withOpacity(0.7),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   String _pnlPctText(TradeItem trade) {
@@ -421,7 +542,7 @@ class _TradeCardState extends State<TradeCard>
     if (reason.contains('stop') || reason.contains('loss')) {
       return AppTheme.loss;
     }
-    if (reason.contains('expiry')) {
+    if (reason.contains('expiry') || reason.contains('max_hold')) {
       return const Color(0xFFE8833A);
     }
     return const Color(0xFF8B949E);

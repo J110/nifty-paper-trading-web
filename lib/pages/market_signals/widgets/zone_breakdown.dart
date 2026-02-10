@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../models/signal.dart';
 import '../../../config/theme.dart';
 
-/// A horizontal stacked bar showing 6 colored zone segments with a
+/// A horizontal stacked bar showing colored zone segments with a
 /// marker/arrow indicating the current prediction position.
+/// Supports 6 zones (v5.x) or 7 zones (v6.2+ with bear debit tiers).
 class ZoneBreakdown extends StatelessWidget {
   final double predictedDrawdownPct;
   final List<Zone> zones;
@@ -17,8 +18,8 @@ class ZoneBreakdown extends StatelessWidget {
     required this.currentZone,
   });
 
-  // Full range: -8% to 0%
-  static const double _minValue = -8.0;
+  // Full range adapts based on zone count
+  double get _minValue => zones.length > 6 ? -15.0 : -8.0;
   static const double _maxValue = 0.0;
 
   @override
@@ -211,7 +212,7 @@ class ZoneBreakdown extends StatelessWidget {
       ];
     }
 
-    final totalRange = (_maxValue - _minValue).abs(); // 5.0
+    final totalRange = (_maxValue - _minValue).abs();
     final segmentWidths = <double>[];
 
     for (final zone in zones) {
@@ -300,6 +301,14 @@ class ZoneBreakdown extends StatelessWidget {
         return 'Drawdown >3.5% predicted. Bearish — '
             'we stay out of the market entirely. '
             'The risk of a large move down is too high to sell premium.';
+      case 'Bear Moderate':
+        return 'Drawdown 3.5-9% predicted. Moderately bearish — '
+            'v6.2 buys a Bear Put Debit Spread at 25% position size. '
+            'Asymmetric payoff: risk the debit to profit from a crash.';
+      case 'Bear Strong':
+        return 'Drawdown >9% predicted. Extremely bearish — '
+            'v6.2 buys a Bear Put Debit Spread at 50% position size. '
+            'High-conviction crash signal with maximum bear sizing.';
       default:
         return 'Zone classification based on the model\'s predicted Nifty drawdown.';
     }
@@ -319,6 +328,10 @@ class ZoneBreakdown extends StatelessWidget {
         return 'Sell Iron Condor \u2022 100% position';
       case 'No Trade (Bear)':
         return 'No trade \u2022 Stay in cash';
+      case 'Bear Moderate':
+        return 'Buy Bear Put Debit \u2022 25% position (T2)';
+      case 'Bear Strong':
+        return 'Buy Bear Put Debit \u2022 50% position (T1)';
       default:
         return '';
     }

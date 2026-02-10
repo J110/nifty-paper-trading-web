@@ -35,6 +35,10 @@ class AppScaffold extends StatelessWidget {
             icon: Icon(Icons.circle, color: AppTheme.versionColors['v5.4.4']),
             label: 'v5.4.4',
           ),
+          NavigationDestination(
+            icon: Icon(Icons.circle, color: AppTheme.versionColors['v6.2']),
+            label: 'v6.2',
+          ),
         ],
       ),
     );
@@ -44,6 +48,7 @@ class AppScaffold extends StatelessWidget {
     if (location.startsWith('/v542')) return 1;
     if (location.startsWith('/v543')) return 2;
     if (location.startsWith('/v544')) return 3;
+    if (location.startsWith('/v62')) return 4;
     return 0;
   }
 
@@ -60,6 +65,9 @@ class AppScaffold extends StatelessWidget {
         break;
       case 3:
         context.go('/v544');
+        break;
+      case 4:
+        context.go('/v62');
         break;
     }
   }
