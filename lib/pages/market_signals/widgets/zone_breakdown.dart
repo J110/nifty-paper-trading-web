@@ -218,8 +218,8 @@ class ZoneBreakdown extends StatelessWidget {
     for (final zone in zones) {
       final parts = zone.range.split(' to ');
       if (parts.length == 2) {
-        final low = double.tryParse(parts[0].trim()) ?? 0;
-        final high = double.tryParse(parts[1].trim()) ?? 0;
+        final low = double.tryParse(parts[0].trim().replaceAll('%', '')) ?? 0;
+        final high = double.tryParse(parts[1].trim().replaceAll('%', '')) ?? 0;
         segmentWidths.add((high - low).abs() / totalRange);
       } else {
         segmentWidths.add(1.0 / zones.length);
