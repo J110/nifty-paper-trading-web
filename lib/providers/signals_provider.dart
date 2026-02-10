@@ -24,9 +24,10 @@ final signalsAutoRefreshProvider =
   }
 });
 
-/// Nifty price chart data
+/// Nifty price chart data — parameterised by period
 final niftyChartProvider =
-    FutureProvider.autoDispose<List<OhlcCandle>>((ref) async {
+    FutureProvider.autoDispose.family<List<OhlcCandle>, String>((ref, period) async {
   final api = ref.read(apiServiceProvider);
-  return api.getNiftyChart(period: '3m', interval: '1d');
+  final interval = period == '1d' ? '5m' : '1d';
+  return api.getNiftyChart(period: period, interval: interval);
 });

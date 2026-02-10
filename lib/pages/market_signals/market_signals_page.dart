@@ -87,8 +87,6 @@ class _SignalsContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final niftyChartAsync = ref.watch(niftyChartProvider);
-
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
@@ -98,14 +96,8 @@ class _SignalsContent extends ConsumerWidget {
           _NiftyPriceHeader(signal: signal),
           const SizedBox(height: 12),
 
-          // ------ 1b. Nifty Sparkline Chart ------
-          niftyChartAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-            data: (candles) => candles.length >= 2
-                ? _NiftySparkline(candles: candles)
-                : const SizedBox.shrink(),
-          ),
+          // ------ 1b. Nifty Sparkline Chart with Period Selector ------
+          const _NiftyChartSection(),
           const SizedBox(height: 20),
 
           // ------ 2. Model Prediction ------
@@ -370,11 +362,136 @@ class _EmptyCard extends StatelessWidget {
   }
 }
 
+// ---- Nifty Chart Section with Period Selector ----
+
+class _NiftyChartSection extends ConsumerStatefulWidget {
+  const _NiftyChartSection();
+
+  @override
+  ConsumerState<_NiftyChartSection> createState() => _NiftyChartSectionState();
+}
+
+class _NiftyChartSectionState extends ConsumerState<_NiftyChartSection> {
+  static const _periods = ['1d', '5d', '1m', '3m', '6m', '1y', '2y', '3y', '5y'];
+  static const _defaultPeriod = '3m';
+  String _selectedPeriod = _defaultPeriod;
+
+  String _periodLabel(String period) {
+    switch (period) {
+      case '1d': return '1D';
+      case '5d': return '5D';
+      case '1m': return '1M';
+      case '3m': return '3M';
+      case '6m': return '6M';
+      case '1y': return '1Y';
+      case '2y': return '2Y';
+      case '3y': return '3Y';
+      case '5y': return '5Y';
+      default: return period.toUpperCase();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final chartAsync = ref.watch(niftyChartProvider(_selectedPeriod));
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Period selector row
+            SizedBox(
+              height: 30,
+              child: Row(
+                children: _periods.map((p) {
+                  final isSelected = p == _selectedPeriod;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: GestureDetector(
+                      onTap: () {
+                        if (!isSelected) {
+                          setState(() => _selectedPeriod = p);
+                        }
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFF1F6FEB)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: isSelected
+                                ? const Color(0xFF1F6FEB)
+                                : const Color(0xFF30363D),
+                          ),
+                        ),
+                        child: Text(
+                          _periodLabel(p),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                            color: isSelected
+                                ? Colors.white
+                                : const Color(0xFF8B949E),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Chart content
+            chartAsync.when(
+              loading: () => const SizedBox(
+                height: 108,
+                child: Center(
+                  child: SizedBox(
+                    width: 20, height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              ),
+              error: (err, _) => SizedBox(
+                height: 108,
+                child: Center(
+                  child: Text(
+                    'Unable to load chart',
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                  ),
+                ),
+              ),
+              data: (candles) => candles.length >= 2
+                  ? _NiftySparkline(candles: candles, periodLabel: _periodLabel(_selectedPeriod))
+                  : SizedBox(
+                      height: 108,
+                      child: Center(
+                        child: Text(
+                          'No data for $_selectedPeriod period',
+                          style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ---- Nifty Sparkline Chart ----
 
 class _NiftySparkline extends StatelessWidget {
   final List<OhlcCandle> candles;
-  const _NiftySparkline({required this.candles});
+  final String periodLabel;
+  const _NiftySparkline({required this.candles, required this.periodLabel});
 
   @override
   Widget build(BuildContext context) {
@@ -396,106 +513,101 @@ class _NiftySparkline extends StatelessWidget {
     final maxY = spots.map((s) => s.y).reduce(math.max);
     final yPad = (maxY - minY) * 0.05;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Nifty 50 — Last ${candles.length} days',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: const Color(0xFF8B949E),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: lineColor.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '${isPositive ? '+' : ''}${changePct.toStringAsFixed(2)}%',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: lineColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              'Nifty 50 — $periodLabel  (${candles.length} pts)',
+              style: TextStyle(
+                fontSize: 12,
+                color: const Color(0xFF8B949E),
+                fontWeight: FontWeight.w500,
+              ),
             ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 100,
-              child: LineChart(
-                LineChartData(
-                  minY: minY - yPad,
-                  maxY: maxY + yPad,
-                  clipData: const FlClipData.all(),
-                  lineTouchData: LineTouchData(
-                    touchTooltipData: LineTouchTooltipData(
-                      tooltipRoundedRadius: 8,
-                      getTooltipItems: (touchedSpots) {
-                        return touchedSpots.map((spot) {
-                          final idx = spot.x.toInt();
-                          final candle = idx < candles.length
-                              ? candles[idx]
-                              : null;
-                          String label = '';
-                          if (candle != null) {
-                            try {
-                              final dt =
-                                  DateTime.parse(candle.timestamp);
-                              label =
-                                  '${DateFormat('d MMM').format(dt)}\n';
-                            } catch (_) {}
-                          }
-                          return LineTooltipItem(
-                            '$label${NumberFormat('#,##0', 'en_IN').format(spot.y)}',
-                            TextStyle(
-                              color: lineColor,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          );
-                        }).toList();
-                      },
-                    ),
-                    handleBuiltInTouches: true,
-                  ),
-                  gridData: const FlGridData(show: false),
-                  titlesData: const FlTitlesData(show: false),
-                  borderData: FlBorderData(show: false),
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: spots,
-                      isCurved: true,
-                      curveSmoothness: 0.25,
-                      color: lineColor,
-                      barWidth: 1.8,
-                      isStrokeCapRound: true,
-                      dotData: const FlDotData(show: false),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        color: lineColor.withOpacity(0.06),
-                      ),
-                    ),
-                  ],
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 3,
+              ),
+              decoration: BoxDecoration(
+                color: lineColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                '${isPositive ? '+' : ''}${changePct.toStringAsFixed(2)}%',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: lineColor,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 100,
+          child: LineChart(
+            LineChartData(
+              minY: minY - yPad,
+              maxY: maxY + yPad,
+              clipData: const FlClipData.all(),
+              lineTouchData: LineTouchData(
+                touchTooltipData: LineTouchTooltipData(
+                  tooltipRoundedRadius: 8,
+                  getTooltipItems: (touchedSpots) {
+                    return touchedSpots.map((spot) {
+                      final idx = spot.x.toInt();
+                      final candle = idx < candles.length
+                          ? candles[idx]
+                          : null;
+                      String label = '';
+                      if (candle != null) {
+                        try {
+                          final dt =
+                              DateTime.parse(candle.timestamp);
+                          label =
+                              '${DateFormat('d MMM').format(dt)}\n';
+                        } catch (_) {}
+                      }
+                      return LineTooltipItem(
+                        '$label${NumberFormat('#,##0', 'en_IN').format(spot.y)}',
+                        TextStyle(
+                          color: lineColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      );
+                    }).toList();
+                  },
+                ),
+                handleBuiltInTouches: true,
+              ),
+              gridData: const FlGridData(show: false),
+              titlesData: const FlTitlesData(show: false),
+              borderData: FlBorderData(show: false),
+              lineBarsData: [
+                LineChartBarData(
+                  spots: spots,
+                  isCurved: true,
+                  curveSmoothness: 0.25,
+                  color: lineColor,
+                  barWidth: 1.8,
+                  isStrokeCapRound: true,
+                  dotData: const FlDotData(show: false),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    color: lineColor.withOpacity(0.06),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
