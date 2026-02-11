@@ -273,9 +273,9 @@ class _DrawdownChart extends StatelessWidget {
         color: const Color(0xFF30363D),
         strokeWidth: 0.8,
       ),
-      _thresholdLine(-1.5, const Color(0xFFA5D6A7)), // Bull Full
-      _thresholdLine(-2.5, const Color(0xFFFFD54F)), // Bull Half
-      _thresholdLine(-3.5, const Color(0xFFFF9800)), // Iron Condor
+      _thresholdLine(-3.8, const Color(0xFFA5D6A7)), // Bull Full
+      _thresholdLine(-5.0, const Color(0xFFFFD54F)), // Bull Half
+      _thresholdLine(-6.5, const Color(0xFFFF9800)), // Iron Condor
     ];
 
     return LineChart(
@@ -338,8 +338,47 @@ class _DrawdownChart extends StatelessWidget {
           show: true,
           topTitles:
               const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 42,
+              getTitlesWidget: (value, meta) {
+                // Show latest predicted and actual values on right edge
+                final lastPred = predictedSpots.isNotEmpty
+                    ? predictedSpots.last.y
+                    : null;
+                final lastActual = (actualDashedSpots.isNotEmpty
+                        ? actualDashedSpots.last.y
+                        : actualSolidSpots.isNotEmpty
+                            ? actualSolidSpots.last.y
+                            : null);
+
+                if (lastPred != null &&
+                    (value - lastPred).abs() < 0.3) {
+                  return Text(
+                    '${lastPred.toStringAsFixed(1)}%',
+                    style: const TextStyle(
+                      color: _predictedColor,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  );
+                }
+                if (lastActual != null &&
+                    (value - lastActual).abs() < 0.3) {
+                  return Text(
+                    '${lastActual.toStringAsFixed(1)}%',
+                    style: const TextStyle(
+                      color: _actualColor,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,

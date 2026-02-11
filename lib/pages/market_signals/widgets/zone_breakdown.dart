@@ -278,35 +278,35 @@ class ZoneBreakdown extends StatelessWidget {
   static String _zoneDescription(String zoneName) {
     switch (zoneName) {
       case 'Strong Bull':
-        return 'Model predicts near-zero drawdown. Very bullish — '
+        return 'Model predicts near-zero drawdown (0% to -1.5%). Very bullish — '
             'we sell a Bull Put Spread at full position size. '
             'Expect Nifty to stay flat or rise.';
       case 'Moderate Bull':
-        return 'Mild drawdown predicted (<1%). Still bullish — '
+        return 'Mild drawdown predicted (-1.5% to -2.5%). Still bullish — '
             'we sell a Bull Put Spread at full position. '
             'Nifty may dip slightly but likely recovers.';
       case 'Bull (Full Position)':
-        return 'Drawdown 1-1.5% predicted. Cautiously bullish — '
+        return 'Drawdown -2.5% to -3.8% predicted. Cautiously bullish — '
             'we sell a Bull Put Spread at full position size. '
             'This is the threshold where the model still favours upside.';
       case 'Bull (Half Position)':
-        return 'Drawdown 1.5-2.5% predicted. Uncertainty rising — '
+        return 'Drawdown -3.8% to -5.0% predicted. Uncertainty rising — '
             'we sell a Bull Put Spread but at reduced (half) position size '
             'to limit risk exposure.';
       case 'Iron Condor':
-        return 'Drawdown 2.5-3.5% predicted. Neutral/volatile — '
+        return 'Drawdown -5.0% to -6.5% predicted. Neutral/volatile — '
             'we sell an Iron Condor (both a put spread and call spread) '
             'to profit from sideways movement and collect premium from both sides.';
       case 'No Trade (Bear)':
-        return 'Drawdown >3.5% predicted. Bearish — '
+        return 'Drawdown beyond -6.5% predicted. Bearish — '
             'we stay out of the market entirely. '
             'The risk of a large move down is too high to sell premium.';
       case 'Bear Moderate':
-        return 'Drawdown 3.5-9% predicted. Moderately bearish — '
+        return 'Drawdown -6.5% to -9% predicted. Moderately bearish — '
             'v6.2 buys a Bear Put Debit Spread at 25% position size. '
             'Asymmetric payoff: risk the debit to profit from a crash.';
       case 'Bear Strong':
-        return 'Drawdown >9% predicted. Extremely bearish — '
+        return 'Drawdown beyond -9% predicted. Extremely bearish — '
             'v6.2 buys a Bear Put Debit Spread at 50% position size. '
             'High-conviction crash signal with maximum bear sizing.';
       default:
