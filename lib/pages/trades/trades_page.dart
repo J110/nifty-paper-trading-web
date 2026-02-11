@@ -4,13 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/theme.dart';
 import '../../config/constants.dart';
 import '../../models/trade.dart';
-import '../../models/chart_data.dart';
 import '../../providers/trades_provider.dart';
 import '../../services/api_service.dart' show friendlyError;
 import '../shared/loading_widget.dart';
 import '../shared/error_widget.dart';
-import 'widgets/portfolio_summary.dart';
-import 'widgets/equity_curve.dart';
 import 'widgets/trade_list.dart';
 import 'widgets/returns_chart.dart';
 import 'widgets/recommendations_view.dart';
@@ -143,53 +140,6 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
     }).toList();
   }
 
-  /// Compute portfolio stats from a filtered list of closed trades.
-  Portfolio _computeFilteredPortfolio(List<TradeItem> closedTrades) {
-    const startingCapital = AppConstants.initialCapital;
-    final trades = closedTrades.where((t) => t.realizedPnl != null).toList();
-    final totalPnl =
-        trades.fold(0.0, (sum, t) => sum + (t.realizedPnl ?? 0));
-    final winners = trades.where((t) => t.realizedPnl! > 0).toList();
-    final losers = trades.where((t) => t.realizedPnl! < 0).toList();
-    final winningPnl =
-        winners.fold(0.0, (sum, t) => sum + (t.realizedPnl ?? 0));
-    final losingPnl =
-        losers.fold(0.0, (sum, t) => sum + (t.realizedPnl ?? 0));
-
-    return Portfolio(
-      startingCapital: startingCapital,
-      currentCapital: startingCapital + totalPnl,
-      totalPnl: totalPnl,
-      totalReturnPct: totalPnl / startingCapital * 100,
-      realizedPnl: totalPnl,
-      unrealizedPnl: 0,
-      deployedCapital: 0,
-      availableCapital: startingCapital + totalPnl,
-      openPositions: 0,
-      closedPositions: trades.length,
-      totalTrades: trades.length,
-      winRate: trades.isNotEmpty
-          ? winners.length / trades.length * 100
-          : 0,
-      avgPnl: trades.isNotEmpty ? totalPnl / trades.length : 0,
-      profitFactor: losingPnl != 0
-          ? winningPnl / losingPnl.abs()
-          : (winningPnl > 0 ? 999.0 : 0),
-    );
-  }
-
-  /// Filter equity curve points by the selected period.
-  List<EquityPoint> _filterEquityPoints(List<EquityPoint> points) {
-    if (_dataMode == 'forwardtest') return points;
-    final cutoff = _periodCutoff;
-    if (cutoff == null) return points;
-    return points.where((p) {
-      final dt = DateTime.tryParse(p.date);
-      if (dt == null) return true;
-      return !dt.isBefore(cutoff);
-    }).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
     final trades = widget.trades;
@@ -198,17 +148,9 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
     final filteredOpen = _filterTrades(trades.openTrades);
     final filteredClosed = _filterTrades(trades.closedTrades);
 
-    // Compute portfolio: always recompute from filtered trades
-    // (since period filter can change the set even in combined mode)
-    final useApiPortfolio =
-        _dataMode == 'combined' && _backtestPeriod == 'all';
-    final portfolio = useApiPortfolio
-        ? trades.portfolio
-        : _computeFilteredPortfolio(filteredClosed);
-
-    // Equity curve with data mode
-    final equityParams = (version: widget.version, dataMode: _dataMode);
-    final equityAsync = ref.watch(equityCurveProvider(equityParams));
+    // Check which tab is active to decide what to show in the header
+    // Reco tab (index 3) doesn't need data mode or period
+    final currentTab = _tabController.index;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D1117),
@@ -250,18 +192,22 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
             fontSize: 13,
             fontWeight: FontWeight.w400,
           ),
+          onTap: (_) => setState(() {}), // rebuild to update header
           tabs: const [
+            Tab(text: 'Returns'),
             Tab(text: 'Open'),
             Tab(text: 'Closed'),
-            Tab(text: 'Returns'),
             Tab(text: 'Reco'),
           ],
         ),
       ),
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
+          // Reco tab: no header controls
+          if (currentTab == 3) return [];
+
           return [
-            // Data mode toggle (shared across all tabs)
+            // Data mode toggle (shared across Returns, Open, Closed)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -276,28 +222,20 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
                   child: _buildPeriodSelector(),
                 ),
               ),
-            // Portfolio summary (respects data mode + period)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: PortfolioSummary(
-                  portfolio: portfolio,
-                  accentColor: widget.accentColor,
-                ),
-              ),
-            ),
-            // Equity curve (respects data mode via provider, period via client filter)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: _buildEquityCurveSection(equityAsync),
-              ),
+            const SliverToBoxAdapter(
+              child: SizedBox(height: 12),
             ),
           ];
         },
         body: TabBarView(
           controller: _tabController,
           children: [
+            // Returns tab (default)
+            ReturnsChart(
+              version: widget.version,
+              dataMode: _dataMode,
+              periodFromDate: _periodFromDate,
+            ),
             // Open Trades tab
             filteredOpen.isEmpty
                 ? _buildEmptyState('No open trades')
@@ -314,13 +252,7 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
                     isOpen: false,
                     dataMode: _dataMode,
                   ),
-            // Returns tab
-            ReturnsChart(
-              version: widget.version,
-              dataMode: _dataMode,
-              periodFromDate: _periodFromDate,
-            ),
-            // Recommendations tab
+            // Recommendations tab (today only)
             RecommendationsView(
               version: widget.version,
             ),
@@ -465,70 +397,6 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
           );
         }),
       ],
-    );
-  }
-
-  Widget _buildEquityCurveSection(AsyncValue<List<EquityPoint>> equityAsync) {
-    return Container(
-      height: 200,
-      decoration: BoxDecoration(
-        color: const Color(0xFF161B22),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF30363D)),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Equity Curve',
-            style: TextStyle(
-              color: Color(0xFFC9D1D9),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: equityAsync.when(
-              loading: () => const Center(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-              error: (err, _) => Center(
-                child: Text(
-                  'Failed to load curve',
-                  style: TextStyle(
-                    color: Colors.grey.shade500,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-              data: (points) {
-                final filtered = _filterEquityPoints(points);
-                if (filtered.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'No data yet',
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 12,
-                      ),
-                    ),
-                  );
-                }
-                return EquityCurveChart(
-                  points: filtered,
-                  lineColor: widget.accentColor,
-                );
-              },
-            ),
-          ),
-        ],
-      ),
     );
   }
 
