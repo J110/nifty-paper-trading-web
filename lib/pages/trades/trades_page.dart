@@ -12,11 +12,29 @@ import '../shared/error_widget.dart';
 import 'widgets/portfolio_summary.dart';
 import 'widgets/equity_curve.dart';
 import 'widgets/trade_list.dart';
-import 'widgets/delay_analysis_view.dart';
 import 'widgets/returns_chart.dart';
 
 /// Forward test start date (shared constant).
 final forwardTestStart = DateTime(2026, 2, 11);
+
+/// Period options for filtering backtest data range.
+const _periodOptions = ['1m', '3m', '6m', '1y', '2y', 'all'];
+const _periodLabels = {
+  '1m': '1M',
+  '3m': '3M',
+  '6m': '6M',
+  '1y': '1Y',
+  '2y': '2Y',
+  'all': 'All',
+};
+const _periodDays = {
+  '1m': 30,
+  '3m': 90,
+  '6m': 180,
+  '1y': 365,
+  '2y': 730,
+  'all': 0, // 0 = no limit
+};
 
 class TradesPage extends ConsumerWidget {
   final String version;
@@ -67,11 +85,12 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _dataMode = 'combined'; // shared across all sections
+  String _backtestPeriod = 'all'; // period filter for backtest/combined modes
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -80,19 +99,46 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
     super.dispose();
   }
 
-  /// Filter trades by data mode (backtest/forward/combined).
+  /// Compute the cutoff date based on the selected period.
+  /// Returns null if 'all' is selected (no cutoff).
+  DateTime? get _periodCutoff {
+    final days = _periodDays[_backtestPeriod] ?? 0;
+    if (days == 0) return null;
+    return DateTime.now().subtract(Duration(days: days));
+  }
+
+  /// ISO date string for the period cutoff (for API calls).
+  String? get _periodFromDate {
+    final cutoff = _periodCutoff;
+    if (cutoff == null) return null;
+    return '${cutoff.year}-${cutoff.month.toString().padLeft(2, '0')}-${cutoff.day.toString().padLeft(2, '0')}';
+  }
+
+  /// Filter trades by data mode (backtest/forward/combined) and period.
   List<TradeItem> _filterTrades(List<TradeItem> trades) {
-    if (_dataMode == 'combined') return trades;
     return trades.where((t) {
       final entryStr = t.entryDate;
       if (entryStr == null) return true;
       final entryDt = DateTime.tryParse(entryStr);
       if (entryDt == null) return true;
-      if (_dataMode == 'backtest') {
-        return entryDt.isBefore(forwardTestStart);
-      } else {
-        return !entryDt.isBefore(forwardTestStart);
+
+      // Data mode filter
+      if (_dataMode == 'backtest' && !entryDt.isBefore(forwardTestStart)) {
+        return false;
       }
+      if (_dataMode == 'forwardtest' && entryDt.isBefore(forwardTestStart)) {
+        return false;
+      }
+
+      // Period filter (applies to backtest and combined modes)
+      if (_dataMode != 'forwardtest') {
+        final cutoff = _periodCutoff;
+        if (cutoff != null && entryDt.isBefore(cutoff)) {
+          return false;
+        }
+      }
+
+      return true;
     }).toList();
   }
 
@@ -131,16 +177,31 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
     );
   }
 
+  /// Filter equity curve points by the selected period.
+  List<EquityPoint> _filterEquityPoints(List<EquityPoint> points) {
+    if (_dataMode == 'forwardtest') return points;
+    final cutoff = _periodCutoff;
+    if (cutoff == null) return points;
+    return points.where((p) {
+      final dt = DateTime.tryParse(p.date);
+      if (dt == null) return true;
+      return !dt.isBefore(cutoff);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final trades = widget.trades;
 
-    // Filter trades by data mode
+    // Filter trades by data mode + period
     final filteredOpen = _filterTrades(trades.openTrades);
     final filteredClosed = _filterTrades(trades.closedTrades);
 
-    // Compute portfolio: use API data for combined, compute client-side for filtered
-    final portfolio = _dataMode == 'combined'
+    // Compute portfolio: always recompute from filtered trades
+    // (since period filter can change the set even in combined mode)
+    final useApiPortfolio =
+        _dataMode == 'combined' && _backtestPeriod == 'all';
+    final portfolio = useApiPortfolio
         ? trades.portfolio
         : _computeFilteredPortfolio(filteredClosed);
 
@@ -191,7 +252,6 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
           tabs: const [
             Tab(text: 'Open'),
             Tab(text: 'Closed'),
-            Tab(text: 'Delay Impact'),
             Tab(text: 'Returns'),
           ],
         ),
@@ -206,7 +266,15 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
                 child: _buildDataModeToggle(),
               ),
             ),
-            // Portfolio summary (respects data mode)
+            // Period selector (shown for backtest and combined modes)
+            if (_dataMode != 'forwardtest')
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  child: _buildPeriodSelector(),
+                ),
+              ),
+            // Portfolio summary (respects data mode + period)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -216,7 +284,7 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
                 ),
               ),
             ),
-            // Equity curve (respects data mode via provider)
+            // Equity curve (respects data mode via provider, period via client filter)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -244,15 +312,11 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
                     isOpen: false,
                     dataMode: _dataMode,
                   ),
-            // Delay Analysis tab
-            DelayAnalysisView(
-              version: widget.version,
-              dataMode: _dataMode,
-            ),
             // Returns tab
             ReturnsChart(
               version: widget.version,
               dataMode: _dataMode,
+              periodFromDate: _periodFromDate,
             ),
           ],
         ),
@@ -283,7 +347,15 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
     final selected = _dataMode == value;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _dataMode = value),
+        onTap: () {
+          setState(() {
+            _dataMode = value;
+            // Reset period to 'all' when switching modes
+            if (value == 'forwardtest') {
+              _backtestPeriod = 'all';
+            }
+          });
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
@@ -332,6 +404,64 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
     }
   }
 
+  // ── Period Selector ──
+
+  Widget _buildPeriodSelector() {
+    return Row(
+      children: [
+        const Text(
+          'Period',
+          style: TextStyle(
+            color: Color(0xFF8B949E),
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(width: 10),
+        ..._periodOptions.map((p) {
+          final isSelected = p == _backtestPeriod;
+          return Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: GestureDetector(
+              onTap: () {
+                if (!isSelected) {
+                  setState(() => _backtestPeriod = p);
+                }
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFF1F6FEB)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: isSelected
+                        ? const Color(0xFF1F6FEB)
+                        : const Color(0xFF30363D),
+                  ),
+                ),
+                child: Text(
+                  _periodLabels[p]!,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: isSelected
+                        ? Colors.white
+                        : const Color(0xFF8B949E),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
   Widget _buildEquityCurveSection(AsyncValue<List<EquityPoint>> equityAsync) {
     return Container(
       height: 200,
@@ -371,20 +501,24 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
                   ),
                 ),
               ),
-              data: (points) => points.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No data yet',
-                        style: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: 12,
-                        ),
+              data: (points) {
+                final filtered = _filterEquityPoints(points);
+                if (filtered.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No data yet',
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 12,
                       ),
-                    )
-                  : EquityCurveChart(
-                      points: points,
-                      lineColor: widget.accentColor,
                     ),
+                  );
+                }
+                return EquityCurveChart(
+                  points: filtered,
+                  lineColor: widget.accentColor,
+                );
+              },
             ),
           ),
         ],

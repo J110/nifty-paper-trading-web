@@ -13,11 +13,13 @@ import '../../shared/error_widget.dart';
 class ReturnsChart extends ConsumerStatefulWidget {
   final String version;
   final String dataMode; // received from parent
+  final String? periodFromDate; // received from parent period selector
 
   const ReturnsChart({
     super.key,
     required this.version,
     this.dataMode = 'combined',
+    this.periodFromDate,
   });
 
   @override
@@ -26,7 +28,6 @@ class ReturnsChart extends ConsumerStatefulWidget {
 
 class _ReturnsChartState extends ConsumerState<ReturnsChart> {
   String _period = 'weekly';
-  String _dateRange = 'all'; // all, 3m, 6m, 1y, 2y
 
   static final _inrFormat = NumberFormat.currency(
     locale: 'en_IN',
@@ -34,36 +35,11 @@ class _ReturnsChartState extends ConsumerState<ReturnsChart> {
     decimalDigits: 0,
   );
 
-  /// Compute from_date based on selected date range
-  String? get _fromDate {
-    if (_dateRange == 'all') return null;
-    final now = DateTime.now();
-    final Duration offset;
-    switch (_dateRange) {
-      case '3m':
-        offset = const Duration(days: 90);
-        break;
-      case '6m':
-        offset = const Duration(days: 180);
-        break;
-      case '1y':
-        offset = const Duration(days: 365);
-        break;
-      case '2y':
-        offset = const Duration(days: 730);
-        break;
-      default:
-        return null;
-    }
-    final d = now.subtract(offset);
-    return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-  }
-
   ReturnsParams get _params => (
         version: widget.version,
         period: _period,
         dataMode: widget.dataMode,
-        fromDate: _fromDate,
+        fromDate: widget.periodFromDate,
         toDate: null,
       );
 
@@ -94,7 +70,7 @@ class _ReturnsChartState extends ConsumerState<ReturnsChart> {
           if (summary != null) _buildSummaryStats(summary),
           if (summary != null) const SizedBox(height: 12),
 
-          // Period + Date range row
+          // Period toggle row
           Row(
             children: [
               const Text(
@@ -109,10 +85,6 @@ class _ReturnsChartState extends ConsumerState<ReturnsChart> {
               _buildPeriodToggle(),
             ],
           ),
-          const SizedBox(height: 10),
-
-          // Date range chips
-          _buildDateRangeChips(),
           const SizedBox(height: 16),
 
           // Bar chart
@@ -272,57 +244,6 @@ class _ReturnsChartState extends ConsumerState<ReturnsChart> {
 
   Widget _statDivider() {
     return Container(width: 1, height: 24, color: const Color(0xFF30363D));
-  }
-
-  // ── Date Range Chips ──
-
-  Widget _buildDateRangeChips() {
-    const ranges = ['3m', '6m', '1y', '2y', 'all'];
-    final labels = {
-      '3m': '3M',
-      '6m': '6M',
-      '1y': '1Y',
-      '2y': '2Y',
-      'all': 'All',
-    };
-
-    return Row(
-      children: ranges.map((r) {
-        final isSelected = r == _dateRange;
-        return Padding(
-          padding: const EdgeInsets.only(right: 6),
-          child: GestureDetector(
-            onTap: () => setState(() => _dateRange = r),
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? const Color(0xFF1F6FEB)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: isSelected
-                      ? const Color(0xFF1F6FEB)
-                      : const Color(0xFF30363D),
-                ),
-              ),
-              child: Text(
-                labels[r]!,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight:
-                      isSelected ? FontWeight.w600 : FontWeight.w400,
-                  color: isSelected
-                      ? Colors.white
-                      : const Color(0xFF8B949E),
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
   }
 
   // ── Period Toggle (Weekly / Monthly) ──
