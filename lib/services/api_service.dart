@@ -6,6 +6,7 @@ import '../models/trade.dart';
 import '../models/delay_analysis.dart';
 import '../models/returns.dart';
 import '../models/chart_data.dart';
+import '../models/recommendation.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
 
@@ -100,6 +101,23 @@ class ApiService {
       queryParameters: params,
     );
     return ReturnsResponse.fromJson(resp.data);
+  }
+
+  // ── Recommendations ──
+  Future<RecommendationsResponse> getRecommendations(
+    String version, {
+    String? fromDate,
+    String? toDate,
+  }) async {
+    final params = <String, dynamic>{};
+    if (fromDate != null) params['from_date'] = fromDate;
+    if (toDate != null) params['to_date'] = toDate;
+
+    final resp = await _dio.get(
+      ApiConfig.recommendations(version),
+      queryParameters: params,
+    );
+    return RecommendationsResponse.fromJson(resp.data);
   }
 
   // ── Chart Data ──

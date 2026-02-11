@@ -4,6 +4,7 @@ import '../models/trade.dart';
 import '../models/delay_analysis.dart';
 import '../models/returns.dart';
 import '../models/chart_data.dart';
+import '../models/recommendation.dart';
 
 final tradesProvider =
     FutureProvider.family.autoDispose<TradesResponse, String>(
@@ -43,6 +44,23 @@ final returnsProvider =
           params.version,
           period: params.period,
           dataMode: params.dataMode,
+          fromDate: params.fromDate,
+          toDate: params.toDate,
+        );
+  },
+);
+
+typedef RecommendationsParams = ({
+  String version,
+  String? fromDate,
+  String? toDate,
+});
+
+final recommendationsProvider = FutureProvider.family
+    .autoDispose<RecommendationsResponse, RecommendationsParams>(
+  (ref, params) async {
+    return ref.read(apiServiceProvider).getRecommendations(
+          params.version,
           fromDate: params.fromDate,
           toDate: params.toDate,
         );

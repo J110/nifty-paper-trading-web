@@ -12,6 +12,8 @@ class ApiConfig {
   static String delayAnalysis(String version) =>
       '/api/trades/$version/delay-analysis';
   static String returns(String version) => '/api/trades/$version/returns';
+  static String recommendations(String version) =>
+      '/api/trades/$version/recommendations';
   static const String chartNifty = '/api/chart-data/nifty';
   static String chartEquity(String version) =>
       '/api/chart-data/equity/$version';

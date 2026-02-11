@@ -13,6 +13,7 @@ import 'widgets/portfolio_summary.dart';
 import 'widgets/equity_curve.dart';
 import 'widgets/trade_list.dart';
 import 'widgets/returns_chart.dart';
+import 'widgets/recommendations_view.dart';
 
 /// Forward test start date (shared constant).
 final forwardTestStart = DateTime(2026, 2, 11);
@@ -90,7 +91,7 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -253,6 +254,7 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
             Tab(text: 'Open'),
             Tab(text: 'Closed'),
             Tab(text: 'Returns'),
+            Tab(text: 'Reco'),
           ],
         ),
       ),
@@ -317,6 +319,10 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
               version: widget.version,
               dataMode: _dataMode,
               periodFromDate: _periodFromDate,
+            ),
+            // Recommendations tab
+            RecommendationsView(
+              version: widget.version,
             ),
           ],
         ),
