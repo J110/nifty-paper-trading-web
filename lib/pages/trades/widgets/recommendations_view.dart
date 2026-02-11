@@ -82,10 +82,14 @@ class RecommendationsView extends ConsumerStatefulWidget {
       _RecommendationsViewState();
 }
 
-class _RecommendationsViewState extends ConsumerState<RecommendationsView> {
+class _RecommendationsViewState extends ConsumerState<RecommendationsView>
+    with AutomaticKeepAliveClientMixin {
   String _timeFilter = '1m';
 
   static final _dateFormat = DateFormat('d MMM yyyy');
+
+  @override
+  bool get wantKeepAlive => true;
 
   RecommendationsParams get _params => (
         version: widget.version,
@@ -95,6 +99,7 @@ class _RecommendationsViewState extends ConsumerState<RecommendationsView> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // required by AutomaticKeepAliveClientMixin
     final asyncData = ref.watch(recommendationsProvider(_params));
 
     return asyncData.when(
