@@ -514,6 +514,26 @@ class _NiftySparkline extends StatelessWidget {
   final String periodLabel;
   const _NiftySparkline({required this.candles, required this.periodLabel});
 
+  double _calcPriceInterval(double min, double max) {
+    final range = max - min;
+    if (range <= 0) return 100;
+    final raw = range / 4;
+    final magnitude =
+        math.pow(10, (math.log(raw) / math.ln10).floor()).toDouble();
+    final normalized = raw / magnitude;
+    double nice;
+    if (normalized <= 1.5) {
+      nice = 1;
+    } else if (normalized <= 3.5) {
+      nice = 2;
+    } else if (normalized <= 7.5) {
+      nice = 5;
+    } else {
+      nice = 10;
+    }
+    return nice * magnitude;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (candles.isEmpty) return const SizedBox.shrink();
@@ -570,7 +590,7 @@ class _NiftySparkline extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 100,
+          height: 130,
           child: LineChart(
             LineChartData(
               minY: minY - yPad,
@@ -607,8 +627,73 @@ class _NiftySparkline extends StatelessWidget {
                 ),
                 handleBuiltInTouches: true,
               ),
-              gridData: const FlGridData(show: false),
-              titlesData: const FlTitlesData(show: false),
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                horizontalInterval:
+                    _calcPriceInterval(minY - yPad, maxY + yPad),
+                getDrawingHorizontalLine: (value) {
+                  return const FlLine(
+                    color: Color(0xFF21262D),
+                    strokeWidth: 0.5,
+                  );
+                },
+              ),
+              titlesData: FlTitlesData(
+                show: true,
+                topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false)),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 48,
+                    getTitlesWidget: (value, meta) {
+                      return Text(
+                        NumberFormat('#,##0', 'en_IN').format(value),
+                        style: const TextStyle(
+                          color: Color(0xFF484F58),
+                          fontSize: 9,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 22,
+                    getTitlesWidget: (value, meta) {
+                      final idx = value.toInt();
+                      if (idx < 0 || idx >= candles.length) {
+                        return const SizedBox.shrink();
+                      }
+                      // Show ~4-5 labels evenly spaced
+                      final step =
+                          (candles.length / 5).ceil().clamp(1, candles.length);
+                      if (idx % step != 0 && idx != candles.length - 1) {
+                        return const SizedBox.shrink();
+                      }
+                      try {
+                        final dt = DateTime.parse(candles[idx].timestamp);
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            DateFormat('d MMM').format(dt),
+                            style: const TextStyle(
+                              color: Color(0xFF484F58),
+                              fontSize: 9,
+                            ),
+                          ),
+                        );
+                      } catch (_) {
+                        return const SizedBox.shrink();
+                      }
+                    },
+                  ),
+                ),
+              ),
               borderData: FlBorderData(show: false),
               lineBarsData: [
                 LineChartBarData(
