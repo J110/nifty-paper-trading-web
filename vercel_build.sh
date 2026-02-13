@@ -8,6 +8,7 @@ if ! command -v flutter &> /dev/null; then
   export PATH="$PATH:$(pwd)/flutter/bin"
 fi
 
+flutter clean
 flutter pub get
 flutter build web --release \
   --dart-define=API_URL=$API_URL
