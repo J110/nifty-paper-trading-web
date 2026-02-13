@@ -16,6 +16,7 @@ import 'widgets/zone_breakdown.dart';
 import 'widgets/indicator_grid.dart';
 import 'widgets/version_signal_cards.dart';
 import 'widgets/drawdown_comparison_chart.dart';
+import 'widgets/activity_log.dart';
 
 /// Formats a number using Indian numbering system (e.g., 25,00,000).
 String formatIndianCurrency(double value) {
@@ -141,6 +142,12 @@ class _SignalsContent extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
 
+          // ------ 4b. Today's Activity ------
+          _SectionTitle(title: "Today's Activity"),
+          const SizedBox(height: 8),
+          const _TodayActivitySection(),
+          const SizedBox(height: 24),
+
           // ------ 5. Key Indicators ------
           _SectionTitle(title: 'Key Indicators'),
           const SizedBox(height: 8),
@@ -148,6 +155,39 @@ class _SignalsContent extends ConsumerWidget {
           const SizedBox(height: 24),
         ],
       ),
+    );
+  }
+}
+
+// ---- Today's Activity Section ----
+
+class _TodayActivitySection extends ConsumerWidget {
+  const _TodayActivitySection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activityAsync = ref.watch(todayActivityProvider);
+
+    return activityAsync.when(
+      loading: () => const SizedBox(
+        height: 80,
+        child: Center(
+          child: SizedBox(
+            width: 20, height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      ),
+      error: (err, _) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            'Unable to load activity',
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+          ),
+        ),
+      ),
+      data: (activity) => TodayActivityLog(activity: activity),
     );
   }
 }

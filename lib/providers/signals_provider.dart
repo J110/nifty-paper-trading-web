@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/api_service.dart';
 import '../models/signal.dart';
 import '../models/chart_data.dart';
+import '../models/activity.dart';
 
 final currentSignalsProvider =
     FutureProvider.autoDispose<SignalResponse>((ref) async {
@@ -37,4 +38,11 @@ final niftyChartProvider =
   final api = ref.read(apiServiceProvider);
   final interval = period == '1d' ? '5m' : '1d';
   return api.getNiftyChart(period: period, interval: interval);
+});
+
+/// Today's trading activity log
+final todayActivityProvider =
+    FutureProvider.autoDispose<TodayActivity>((ref) async {
+  final api = ref.read(apiServiceProvider);
+  return api.getTodayActivity();
 });

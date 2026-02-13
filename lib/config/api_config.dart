@@ -20,4 +20,5 @@ class ApiConfig {
   static const String chartDrawdownComparison =
       '/api/chart-data/drawdown-comparison';
   static const String indicators = '/api/indicators';
+  static const String activityToday = '/api/activity/today';
 }

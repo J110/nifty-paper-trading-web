@@ -7,6 +7,7 @@ import '../models/delay_analysis.dart';
 import '../models/returns.dart';
 import '../models/chart_data.dart';
 import '../models/recommendation.dart';
+import '../models/activity.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
 
@@ -150,6 +151,12 @@ class ApiService {
     );
     final data = resp.data['equity_curve'] as List? ?? [];
     return data.map((e) => EquityPoint.fromJson(e)).toList();
+  }
+
+  // ── Activity ──
+  Future<TodayActivity> getTodayActivity() async {
+    final resp = await _dio.get(ApiConfig.activityToday);
+    return TodayActivity.fromJson(resp.data);
   }
 }
 
