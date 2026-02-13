@@ -94,10 +94,18 @@ class PredictionGauge extends StatelessWidget {
     // Find active zone color
     for (final z in zones) {
       if (z.active) {
-        return _parseHexColor(z.color);
+        return _resolveZoneColor(z);
       }
     }
     return AppTheme.neutral;
+  }
+
+  /// Ensure No Trade zone is always visually distinct from Iron Condor
+  static Color _resolveZoneColor(Zone zone) {
+    if (zone.name == 'No Trade (Bear)') {
+      return const Color(0xFFB71C1C); // Material Red 900 — deep crimson
+    }
+    return _parseHexColor(zone.color);
   }
 
   static Color _parseHexColor(String hex) {
@@ -158,8 +166,8 @@ class _GaugePainter extends CustomPainter {
         final fraction = zoneRanges[i];
         final sweepAngle = -fraction * pi; // Sweep towards right (0)
 
-        // Use zone color from API data
-        final color = _parseHexColor(zones[i].color);
+        // Use zone color — No Trade overridden to deep crimson for visibility
+        final color = _resolveZoneColor(zones[i]);
 
         final paint = Paint()
           ..color = color
@@ -191,6 +199,13 @@ class _GaugePainter extends CustomPainter {
     hex = hex.replaceAll('#', '');
     if (hex.length == 6) hex = 'FF$hex';
     return Color(int.parse(hex, radix: 16));
+  }
+
+  static Color _resolveZoneColor(Zone zone) {
+    if (zone.name == 'No Trade (Bear)') {
+      return const Color(0xFFB71C1C); // Material Red 900 — deep crimson
+    }
+    return _parseHexColor(zone.color);
   }
 
   List<double> _parseZoneRanges() {

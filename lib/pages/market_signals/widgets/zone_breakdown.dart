@@ -112,7 +112,7 @@ class ZoneBreakdown extends StatelessWidget {
               spacing: 6,
               runSpacing: 6,
               children: zones.map((zone) {
-                final color = _parseHexColor(zone.color);
+                final color = _resolveZoneColor(zone);
                 final isActive = zone.active;
                 return GestureDetector(
                   onTap: () => _showZoneDetail(context, zone),
@@ -172,7 +172,7 @@ class ZoneBreakdown extends StatelessWidget {
                   Text(
                     activeZone.name,
                     style: TextStyle(
-                      color: _parseHexColor(activeZone.color),
+                      color: _resolveZoneColor(activeZone),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -232,7 +232,7 @@ class ZoneBreakdown extends StatelessWidget {
         sum > 0 ? segmentWidths.map((w) => w / sum).toList() : segmentWidths;
 
     return List.generate(zones.length, (i) {
-      final color = _parseHexColor(zones[i].color);
+      final color = _resolveZoneColor(zones[i]);
       final isActive = zones[i].active;
       final flex = (normalized[i] * 1000).round().clamp(1, 1000);
 
@@ -338,7 +338,7 @@ class ZoneBreakdown extends StatelessWidget {
   }
 
   void _showZoneDetail(BuildContext context, Zone zone) {
-    final color = _parseHexColor(zone.color);
+    final color = _resolveZoneColor(zone);
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF161B22),
@@ -458,6 +458,15 @@ class ZoneBreakdown extends StatelessWidget {
     hex = hex.replaceAll('#', '');
     if (hex.length == 6) hex = 'FF$hex';
     return Color(int.parse(hex, radix: 16));
+  }
+
+  /// Resolve zone color — ensures No Trade zone is always visually distinct
+  /// from Iron Condor regardless of backend color value.
+  static Color _resolveZoneColor(Zone zone) {
+    if (zone.name == 'No Trade (Bear)') {
+      return const Color(0xFFB71C1C); // Material Red 900 — deep crimson
+    }
+    return _parseHexColor(zone.color);
   }
 }
 
