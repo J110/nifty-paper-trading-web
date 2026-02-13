@@ -26,18 +26,27 @@ class PredictionGauge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
         child: Column(
           children: [
-            SizedBox(
-              height: 220,
-              child: CustomPaint(
-                size: const Size(double.infinity, 220),
-                painter: _GaugePainter(
-                  predictedDrawdownPct: predictedDrawdownPct,
-                  zones: zones,
-                ),
-              ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                // Gauge height scales with available width to prevent overflow
+                final gaugeWidth = constraints.maxWidth;
+                final gaugeHeight = gaugeWidth * 0.55; // semicircle aspect ratio
+                return ClipRect(
+                  child: SizedBox(
+                    height: gaugeHeight,
+                    child: CustomPaint(
+                      size: Size(gaugeWidth, gaugeHeight),
+                      painter: _GaugePainter(
+                        predictedDrawdownPct: predictedDrawdownPct,
+                        zones: zones,
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 12),
             // Prediction value
@@ -124,8 +133,9 @@ class _GaugePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height - 20);
-    final radius = min(size.width / 2 - 40, size.height - 60);
+    // Reserve space: 35px top for tick labels, 10px bottom for center dot
+    final center = Offset(size.width / 2, size.height - 10);
+    final radius = min(size.width / 2 - 35, size.height - 45);
 
     _drawArcSegments(canvas, center, radius);
     _drawTicks(canvas, center, radius);
