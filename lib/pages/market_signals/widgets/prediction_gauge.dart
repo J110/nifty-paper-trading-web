@@ -30,9 +30,9 @@ class PredictionGauge extends StatelessWidget {
         child: Column(
           children: [
             SizedBox(
-              height: 180,
+              height: 220,
               child: CustomPaint(
-                size: const Size(double.infinity, 180),
+                size: const Size(double.infinity, 220),
                 painter: _GaugePainter(
                   predictedDrawdownPct: predictedDrawdownPct,
                   zones: zones,
@@ -106,16 +106,15 @@ class _GaugePainter extends CustomPainter {
   double get minValue => zones.length > 6 ? -15.0 : -8.0;
   static const double maxValue = 0.0;
 
-  // Zone colors — drawn LEFT to RIGHT: green → red
-  // Reversed from the API order so green is on the left (0%) and red on the right
-  static const List<Color> _zoneColorsLeftToRight = [
+  // Fallback zone colors — drawn LEFT to RIGHT: green → red
+  // Only used when zone data is empty. Normally API zone colors are used.
+  static const List<Color> _fallbackColorsLeftToRight = [
     Color(0xFF00E676), // Strong Bull (bright green) — left
     Color(0xFF66BB6A), // Moderate Bull (green)
     Color(0xFFA5D6A7), // Bull Full (light green)
     Color(0xFFFFD54F), // Bull Half (yellow)
     Color(0xFFFF9800), // Iron Condor (orange)
-    Color(0xFFEF5350), // Bear Moderate (red)
-    Color(0xFFB71C1C), // Bear Strong (deep red) — right
+    Color(0xFFB71C1C), // No Trade / Bear (dark red) — right
   ];
 
   _GaugePainter({
@@ -125,8 +124,8 @@ class _GaugePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height - 10);
-    final radius = min(size.width / 2 - 20, size.height - 30);
+    final center = Offset(size.width / 2, size.height - 20);
+    final radius = min(size.width / 2 - 40, size.height - 60);
 
     _drawArcSegments(canvas, center, radius);
     _drawTicks(canvas, center, radius);
@@ -149,9 +148,8 @@ class _GaugePainter extends CustomPainter {
         final fraction = zoneRanges[i];
         final sweepAngle = -fraction * pi; // Sweep towards right (0)
 
-        final color = i < _zoneColorsLeftToRight.length
-            ? _zoneColorsLeftToRight[i]
-            : Colors.grey;
+        // Use zone color from API data
+        final color = _parseHexColor(zones[i].color);
 
         final paint = Paint()
           ..color = color
@@ -164,11 +162,11 @@ class _GaugePainter extends CustomPainter {
       }
     } else {
       // Fallback: equal segments, green on left → red on right
-      final numSegments = _zoneColorsLeftToRight.length;
+      final numSegments = _fallbackColorsLeftToRight.length;
       final segmentAngle = pi / numSegments;
       for (int i = 0; i < numSegments; i++) {
         final paint = Paint()
-          ..color = _zoneColorsLeftToRight[i]
+          ..color = _fallbackColorsLeftToRight[i]
           ..style = PaintingStyle.stroke
           ..strokeWidth = arcWidth
           ..strokeCap = StrokeCap.butt;
@@ -177,6 +175,12 @@ class _GaugePainter extends CustomPainter {
         canvas.drawArc(arcRect, startAngle, -segmentAngle, false, paint);
       }
     }
+  }
+
+  static Color _parseHexColor(String hex) {
+    hex = hex.replaceAll('#', '');
+    if (hex.length == 6) hex = 'FF$hex';
+    return Color(int.parse(hex, radix: 16));
   }
 
   List<double> _parseZoneRanges() {
