@@ -10,6 +10,9 @@ import '../../../config/theme.dart';
 /// Range adapts: -8% for 6 zones (v5.x), -15% for 7+ zones (v6.2+).
 /// The needle points right for more negative (dangerous) predictions
 /// and left for milder predictions.
+///
+/// The percentage value and zone label are overlaid inside the semicircle
+/// area so there is no dead space above or below.
 class PredictionGauge extends StatelessWidget {
   final double predictedDrawdownPct;
   final String currentZone;
@@ -26,56 +29,82 @@ class PredictionGauge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-        child: Column(
-          children: [
-            SizedBox(
-              height: 200,
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Compute gauge dimensions to keep it compact
+            final availableWidth = constraints.maxWidth;
+            // Radius limited by half width minus label margin
+            final radius = (availableWidth / 2 - 36).clamp(60.0, 160.0);
+            // Total height: radius (arc) + 30 (tick labels below baseline)
+            final gaugeHeight = radius + 34;
+
+            return SizedBox(
+              height: gaugeHeight,
               width: double.infinity,
-              child: CustomPaint(
-                size: const Size(double.infinity, 200),
-                painter: _GaugePainter(
-                  predictedDrawdownPct: predictedDrawdownPct,
-                  zones: zones,
-                ),
+              child: Stack(
+                children: [
+                  // The arc + needle + ticks
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _GaugePainter(
+                        predictedDrawdownPct: predictedDrawdownPct,
+                        zones: zones,
+                      ),
+                    ),
+                  ),
+                  // Overlay: value + zone label centred in the semicircle
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    // Place text roughly in the centre of the arc area
+                    top: radius * 0.38,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${predictedDrawdownPct.toStringAsFixed(2)}%',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: _valueColor,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _zoneColor.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: _zoneColor.withOpacity(0.4),
+                            ),
+                          ),
+                          child: Text(
+                            currentZone,
+                            style: TextStyle(
+                              color: _zoneColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 12),
-            // Prediction value
-            Text(
-              '${predictedDrawdownPct.toStringAsFixed(2)}%',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: _valueColor,
-              ),
-            ),
-            const SizedBox(height: 4),
-            // Current zone label
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-              decoration: BoxDecoration(
-                color: _zoneColor.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _zoneColor.withOpacity(0.4)),
-              ),
-              child: Text(
-                currentZone,
-                style: TextStyle(
-                  color: _zoneColor,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
   }
 
   Color get _valueColor {
-    // More negative = more red
     if (predictedDrawdownPct <= -3.5) return AppTheme.loss;
     if (predictedDrawdownPct <= -2.0) return const Color(0xFFFF9800);
     if (predictedDrawdownPct <= -1.0) return const Color(0xFFFFD54F);
@@ -83,19 +112,15 @@ class PredictionGauge extends StatelessWidget {
   }
 
   Color get _zoneColor {
-    // Find active zone color
     for (final z in zones) {
-      if (z.active) {
-        return _resolveZoneColor(z);
-      }
+      if (z.active) return _resolveZoneColor(z);
     }
     return AppTheme.neutral;
   }
 
-  /// Ensure No Trade zone is always visually distinct from Iron Condor
   static Color _resolveZoneColor(Zone zone) {
     if (zone.name == 'No Trade (Bear)') {
-      return const Color(0xFFB71C1C); // Material Red 900 — deep crimson
+      return const Color(0xFFB71C1C);
     }
     return _parseHexColor(zone.color);
   }
@@ -111,19 +136,16 @@ class _GaugePainter extends CustomPainter {
   final double predictedDrawdownPct;
   final List<Zone> zones;
 
-  // Gauge range adapts: 0% to -8% for 6 zones, 0% to -15% for 7+ zones
   double get minValue => zones.length > 6 ? -15.0 : -8.0;
   static const double maxValue = 0.0;
 
-  // Fallback zone colors — drawn LEFT to RIGHT: green → red
-  // Only used when zone data is empty. Normally API zone colors are used.
   static const List<Color> _fallbackColorsLeftToRight = [
-    Color(0xFF00E676), // Strong Bull (bright green) — left
-    Color(0xFF66BB6A), // Moderate Bull (green)
-    Color(0xFFA5D6A7), // Bull Full (light green)
-    Color(0xFFFFD54F), // Bull Half (yellow)
-    Color(0xFFFF9800), // Iron Condor (orange)
-    Color(0xFFB71C1C), // No Trade / Bear (dark red) — right
+    Color(0xFF00E676),
+    Color(0xFF66BB6A),
+    Color(0xFFA5D6A7),
+    Color(0xFFFFD54F),
+    Color(0xFFFF9800),
+    Color(0xFFB71C1C),
   ];
 
   _GaugePainter({
@@ -133,9 +155,11 @@ class _GaugePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Center at bottom, radius fits within the box leaving room for tick labels
-    final center = Offset(size.width / 2, size.height - 8);
-    final radius = min(size.width / 2 - 40, size.height - 40);
+    // Radius fits width minus tick-label margin
+    final radius = (size.width / 2 - 36).clamp(60.0, 160.0);
+    // Center the arc at horizontal centre, baseline near the bottom
+    // Leave 30 px below baseline for the bottom tick labels
+    final center = Offset(size.width / 2, size.height - 30);
 
     _drawArcSegments(canvas, center, radius);
     _drawTicks(canvas, center, radius);
@@ -148,19 +172,14 @@ class _GaugePainter extends CustomPainter {
     final arcRect = Rect.fromCircle(center: center, radius: radius);
 
     if (zones.isNotEmpty) {
-      // Zones from API: [Strong Bull (0%), ..., No Trade (-8%)]
-      // On the gauge: 0% = left (pi), -8% = right (0)
-      // So Strong Bull is drawn at left (pi) and No Trade at right (0)
       final zoneRanges = _parseZoneRanges();
-      double currentAngle = pi; // Start from left (0%)
+      double currentAngle = pi;
 
       for (int i = 0; i < zoneRanges.length; i++) {
         final fraction = zoneRanges[i];
-        final sweepAngle = -fraction * pi; // Sweep towards right (0)
+        final sweepAngle = -fraction * pi;
 
-        // Use zone color — No Trade overridden to deep crimson for visibility
         final color = _resolveZoneColor(zones[i]);
-
         final paint = Paint()
           ..color = color
           ..style = PaintingStyle.stroke
@@ -171,18 +190,23 @@ class _GaugePainter extends CustomPainter {
         currentAngle += sweepAngle;
       }
     } else {
-      // Fallback: equal segments, green on left → red on right
       final numSegments = _fallbackColorsLeftToRight.length;
       final segmentAngle = pi / numSegments;
       for (int i = 0; i < numSegments; i++) {
         final paint = Paint()
           ..color = _fallbackColorsLeftToRight[i]
           ..style = PaintingStyle.stroke
-          ..strokeWidth = arcWidth
+          ..strokeWidth = radius * 0.18
           ..strokeCap = StrokeCap.butt;
 
         final startAngle = pi - (i * segmentAngle);
-        canvas.drawArc(arcRect, startAngle, -segmentAngle, false, paint);
+        canvas.drawArc(
+          Rect.fromCircle(center: center, radius: radius),
+          startAngle,
+          -segmentAngle,
+          false,
+          paint,
+        );
       }
     }
   }
@@ -195,18 +219,16 @@ class _GaugePainter extends CustomPainter {
 
   static Color _resolveZoneColor(Zone zone) {
     if (zone.name == 'No Trade (Bear)') {
-      return const Color(0xFFB71C1C); // Material Red 900 — deep crimson
+      return const Color(0xFFB71C1C);
     }
     return _parseHexColor(zone.color);
   }
 
   List<double> _parseZoneRanges() {
-    if (zones.isEmpty) {
-      return List.filled(7, 1.0 / 7);
-    }
+    if (zones.isEmpty) return List.filled(7, 1.0 / 7);
 
     final widths = <double>[];
-    final totalRange = (maxValue - minValue).abs(); // 8.0 or 15.0
+    final totalRange = (maxValue - minValue).abs();
 
     for (final zone in zones) {
       final parts = zone.range.split(' to ');
@@ -219,11 +241,8 @@ class _GaugePainter extends CustomPainter {
       }
     }
 
-    // Normalize to sum to 1.0
     final sum = widths.fold(0.0, (a, b) => a + b);
-    if (sum > 0) {
-      return widths.map((w) => w / sum).toList();
-    }
+    if (sum > 0) return widths.map((w) => w / sum).toList();
     return List.filled(zones.length, 1.0 / zones.length);
   }
 
@@ -237,24 +256,22 @@ class _GaugePainter extends CustomPainter {
       fontSize: 10,
     );
 
-    // Draw tick marks dynamically based on gauge range
-    final maxTick = minValue.abs().toInt(); // 8 or 15
-    final labelStep = maxTick > 10 ? 3 : 2; // every 3% for -15 range, every 2% for -8
+    final maxTick = minValue.abs().toInt();
+    final labelStep = maxTick > 10 ? 3 : 2;
 
     for (int i = 0; i <= maxTick; i++) {
       final value = -i.toDouble();
       final angle = _valueToAngle(value);
 
       final outerPoint = Offset(
-        center.dx + (radius + 14) * cos(angle),
-        center.dy + (radius + 14) * sin(angle),
+        center.dx + (radius + 12) * cos(angle),
+        center.dy + (radius + 12) * sin(angle),
       );
       final innerPoint = Offset(
         center.dx + (radius - radius * 0.09) * cos(angle),
         center.dy + (radius - radius * 0.09) * sin(angle),
       );
 
-      // Only draw tick lines at label intervals to avoid crowding on -15 range
       if (i % labelStep == 0) {
         canvas.drawLine(innerPoint, outerPoint, tickPaint);
 
@@ -264,8 +281,8 @@ class _GaugePainter extends CustomPainter {
         )..layout();
 
         final labelOffset = Offset(
-          center.dx + (radius + 28) * cos(angle) - tp.width / 2,
-          center.dy + (radius + 28) * sin(angle) - tp.height / 2,
+          center.dx + (radius + 24) * cos(angle) - tp.width / 2,
+          center.dy + (radius + 24) * sin(angle) - tp.height / 2,
         );
         tp.paint(canvas, labelOffset);
       }
@@ -275,10 +292,8 @@ class _GaugePainter extends CustomPainter {
   void _drawNeedle(Canvas canvas, Offset center, double radius) {
     final clampedValue = predictedDrawdownPct.clamp(minValue, maxValue);
     final angle = _valueToAngle(clampedValue);
-
     final needleLength = radius * 0.75;
 
-    // Needle shadow
     final shadowPaint = Paint()
       ..color = Colors.black.withOpacity(0.3)
       ..strokeWidth = 3
@@ -290,7 +305,6 @@ class _GaugePainter extends CustomPainter {
     );
     canvas.drawLine(center, shadowTip, shadowPaint);
 
-    // Needle
     final needlePaint = Paint()
       ..color = Colors.white
       ..strokeWidth = 2.5
@@ -302,14 +316,14 @@ class _GaugePainter extends CustomPainter {
     );
     canvas.drawLine(center, tip, needlePaint);
 
-    // Small arrowhead at tip
+    // Arrowhead
     final arrowPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
 
     final arrowPath = Path();
     final perpAngle = angle + pi / 2;
-    final arrowSize = 5.0;
+    const arrowSize = 5.0;
     arrowPath.moveTo(tip.dx, tip.dy);
     arrowPath.lineTo(
       tip.dx - 12 * cos(angle) + arrowSize * cos(perpAngle),
@@ -324,13 +338,11 @@ class _GaugePainter extends CustomPainter {
   }
 
   void _drawCenterDot(Canvas canvas, Offset center) {
-    // Outer ring
     canvas.drawCircle(
       center,
       8,
       Paint()..color = const Color(0xFF30363D),
     );
-    // Inner dot
     canvas.drawCircle(
       center,
       5,
@@ -338,12 +350,9 @@ class _GaugePainter extends CustomPainter {
     );
   }
 
-  /// Maps a value to an angle on the semicircle.
-  /// 0% (safe) -> pi (left), minValue (danger) -> 0 (right)
   double _valueToAngle(double value) {
-    // normalized: 0% → 0.0 (left), minValue → 1.0 (right)
     final normalized = (maxValue - value) / (maxValue - minValue);
-    return pi * (1.0 - normalized); // pi (left) .. 0 (right)
+    return pi * (1.0 - normalized);
   }
 
   @override
