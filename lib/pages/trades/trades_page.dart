@@ -13,7 +13,7 @@ import 'widgets/returns_chart.dart';
 import 'widgets/recommendations_view.dart';
 
 /// Forward test start date (shared constant).
-final forwardTestStart = DateTime(2026, 2, 11);
+final forwardTestStart = DateTime(2026, 2, 13);
 
 /// Period options for filtering backtest data range.
 const _periodOptions = ['1m', '3m', '6m', '1y', '2y', 'all'];
@@ -334,9 +334,9 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
   String _dataModeSubtitle(String mode) {
     switch (mode) {
       case 'backtest':
-        return 'Before 11 Feb 2026';
+        return 'Before 13 Feb 2026';
       case 'forwardtest':
-        return 'From 11 Feb 2026';
+        return 'From 13 Feb 2026';
       default:
         return 'All trades';
     }
