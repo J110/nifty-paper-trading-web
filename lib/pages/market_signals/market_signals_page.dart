@@ -208,7 +208,7 @@ class _NiftyPriceHeader extends StatelessWidget {
     String formattedTime = '';
     if (timestamp != null) {
       try {
-        final dt = DateTime.parse(timestamp);
+        final dt = DateTime.parse(timestamp).toLocal();
         formattedTime = DateFormat('dd MMM yyyy, hh:mm a').format(dt);
       } catch (_) {
         formattedTime = timestamp;

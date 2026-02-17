@@ -102,7 +102,9 @@ class _TradesPageContentState extends ConsumerState<_TradesPageContent>
   DateTime? get _periodCutoff {
     final days = _periodDays[_backtestPeriod] ?? 0;
     if (days == 0) return null;
-    return DateTime.now().subtract(Duration(days: days));
+    // Use IST (UTC+5:30) to match server-side dates
+    final nowIst = DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30));
+    return nowIst.subtract(Duration(days: days));
   }
 
   /// ISO date string for the period cutoff (for API calls).

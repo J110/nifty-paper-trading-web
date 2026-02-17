@@ -17,9 +17,9 @@ class RecommendationsView extends ConsumerWidget {
     required this.version,
   });
 
-  /// Today's date as ISO string for the API.
+  /// Today's date as ISO string for the API (IST = UTC+5:30).
   String get _todayDate {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30));
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
