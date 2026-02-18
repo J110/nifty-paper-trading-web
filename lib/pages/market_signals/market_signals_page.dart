@@ -144,7 +144,7 @@ class _SignalsContent extends ConsumerWidget {
         SnackBar(
           content: Text(
             _nextUpdateMessage(),
-            style: const TextStyle(fontSize: 13),
+            style: const TextStyle(fontSize: 13, color: Color(0xFFC9D1D9)),
           ),
           backgroundColor: const Color(0xFF30363D),
           behavior: SnackBarBehavior.floating,
