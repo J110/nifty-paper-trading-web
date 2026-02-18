@@ -9,6 +9,7 @@ class SignalResponse {
   final Classification? classification;
   final Map<String, VersionSignal> versionSignals;
   final List<Indicator> indicators;
+  final List<PredictionReason> predictionReasons;
   final double? confidenceScore;
   final String status;
 
@@ -21,6 +22,7 @@ class SignalResponse {
     this.classification,
     this.versionSignals = const {},
     this.indicators = const [],
+    this.predictionReasons = const [],
     this.confidenceScore,
     this.status = 'unknown',
   });
@@ -36,6 +38,10 @@ class SignalResponse {
     final indicators =
         indicatorsJson.map((e) => Indicator.fromJson(e)).toList();
 
+    final reasonsJson = json['prediction_reasons'] as List? ?? [];
+    final reasons =
+        reasonsJson.map((e) => PredictionReason.fromJson(e)).toList();
+
     return SignalResponse(
       timestamp: json['timestamp'],
       niftySpot: (json['nifty_spot'] as num?)?.toDouble(),
@@ -48,6 +54,7 @@ class SignalResponse {
           : null,
       versionSignals: versSignals,
       indicators: indicators,
+      predictionReasons: reasons,
       confidenceScore: (json['confidence_score'] as num?)?.toDouble(),
       status: json['status'] ?? 'unknown',
     );
@@ -162,6 +169,38 @@ class Indicator {
       classification: json['classification'] ?? 'neutral',
       bullishWhen: json['bullish_when'] ?? '',
       bearishWhen: json['bearish_when'] ?? '',
+    );
+  }
+}
+
+class PredictionReason {
+  final String feature;
+  final String label;
+  final double value;
+  final String formattedValue;
+  final String direction; // "bullish", "bearish", "neutral"
+  final double importancePct;
+  final String reason;
+
+  PredictionReason({
+    required this.feature,
+    required this.label,
+    required this.value,
+    required this.formattedValue,
+    required this.direction,
+    required this.importancePct,
+    required this.reason,
+  });
+
+  factory PredictionReason.fromJson(Map<String, dynamic> json) {
+    return PredictionReason(
+      feature: json['feature'] ?? '',
+      label: json['label'] ?? '',
+      value: (json['value'] as num?)?.toDouble() ?? 0,
+      formattedValue: json['formatted_value'] ?? '',
+      direction: json['direction'] ?? 'neutral',
+      importancePct: (json['importance_pct'] as num?)?.toDouble() ?? 0,
+      reason: json['reason'] ?? '',
     );
   }
 }

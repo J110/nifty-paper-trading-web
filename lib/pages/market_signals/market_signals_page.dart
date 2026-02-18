@@ -17,6 +17,7 @@ import 'widgets/indicator_grid.dart';
 import 'widgets/version_signal_cards.dart';
 import 'widgets/drawdown_comparison_chart.dart';
 import 'widgets/activity_log.dart';
+import 'widgets/prediction_reasoning.dart';
 
 /// Formats a number using Indian numbering system (e.g., 25,00,000).
 String formatIndianCurrency(double value) {
@@ -120,6 +121,14 @@ class _SignalsContent extends ConsumerWidget {
           else
             const _EmptyCard(message: 'No prediction available'),
           const SizedBox(height: 24),
+
+          // ------ 2b. Prediction Reasoning ------
+          if (signal.predictionReasons.isNotEmpty) ...[
+            _SectionTitle(title: 'Prediction Reasoning'),
+            const SizedBox(height: 8),
+            PredictionReasoning(reasons: signal.predictionReasons),
+            const SizedBox(height: 24),
+          ],
 
           // ------ 3. Zone Breakdown ------
           _SectionTitle(title: 'Zone Breakdown'),
@@ -320,7 +329,7 @@ class _NiftyPriceHeader extends StatelessWidget {
                 ],
                 if (formattedTime.isNotEmpty)
                   Text(
-                    formattedTime,
+                    'Prediction made at $formattedTime',
                     style: TextStyle(
                       color: const Color(0xFF8B949E),
                       fontSize: 12,
