@@ -90,13 +90,31 @@ class _SignalsContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ------ 1. Nifty Price Header ------
-          _NiftyPriceHeader(signal: signal),
+    return RefreshIndicator(
+      color: const Color(0xFF58A6FF),
+      backgroundColor: const Color(0xFF161B22),
+      onRefresh: () async {
+        ref.invalidate(signalsAutoRefreshProvider);
+        ref.invalidate(todayActivityProvider);
+        ref.invalidate(niftyChartProvider);
+        ref.invalidate(drawdownComparisonProvider);
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ------ 1. Nifty Price Header ------
+            _NiftyPriceHeader(
+              signal: signal,
+              onRefresh: () {
+                ref.invalidate(signalsAutoRefreshProvider);
+                ref.invalidate(todayActivityProvider);
+                ref.invalidate(niftyChartProvider);
+                ref.invalidate(drawdownComparisonProvider);
+              },
+            ),
           const SizedBox(height: 12),
 
           // ------ 1b. Nifty Sparkline Chart with Period Selector ------
@@ -164,6 +182,7 @@ class _SignalsContent extends ConsumerWidget {
           const SizedBox(height: 24),
         ],
       ),
+      ),
     );
   }
 }
@@ -205,7 +224,8 @@ class _TodayActivitySection extends ConsumerWidget {
 
 class _NiftyPriceHeader extends StatelessWidget {
   final SignalResponse signal;
-  const _NiftyPriceHeader({required this.signal});
+  final VoidCallback? onRefresh;
+  const _NiftyPriceHeader({required this.signal, this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
@@ -328,11 +348,25 @@ class _NiftyPriceHeader extends StatelessWidget {
                   const SizedBox(width: 12),
                 ],
                 if (formattedTime.isNotEmpty)
-                  Text(
-                    'Prediction made at $formattedTime',
-                    style: TextStyle(
+                  Expanded(
+                    child: Text(
+                      'Prediction made at $formattedTime',
+                      style: TextStyle(
+                        color: const Color(0xFF8B949E),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                if (onRefresh != null)
+                  SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: IconButton(
+                      onPressed: onRefresh,
+                      icon: const Icon(Icons.refresh, size: 18),
                       color: const Color(0xFF8B949E),
-                      fontSize: 12,
+                      tooltip: 'Refresh data',
+                      padding: EdgeInsets.zero,
                     ),
                   ),
               ],
