@@ -8,8 +8,13 @@ import '../../../config/theme.dart';
 /// classification with an importance bar.
 class PredictionReasoning extends StatelessWidget {
   final List<PredictionReason> reasons;
+  final String summary;
 
-  const PredictionReasoning({super.key, required this.reasons});
+  const PredictionReasoning({
+    super.key,
+    required this.reasons,
+    this.summary = '',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +44,19 @@ class PredictionReasoning extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Summary line: "4 bearish · 2 bullish · 1 neutral"
+            // Plain-English summary narrative
+            if (summary.isNotEmpty) ...[
+              Text(
+                summary,
+                style: const TextStyle(
+                  color: Color(0xFFC9D1D9),
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
+            // Count chips: "4 bearish · 2 bullish · 1 neutral"
             _ReasoningSummary(reasons: reasons),
             const SizedBox(height: 16),
             // Individual reason rows

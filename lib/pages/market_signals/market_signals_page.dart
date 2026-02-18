@@ -144,7 +144,10 @@ class _SignalsContent extends ConsumerWidget {
           if (signal.predictionReasons.isNotEmpty) ...[
             _SectionTitle(title: 'Prediction Reasoning'),
             const SizedBox(height: 8),
-            PredictionReasoning(reasons: signal.predictionReasons),
+            PredictionReasoning(
+              reasons: signal.predictionReasons,
+              summary: signal.predictionSummary,
+            ),
             const SizedBox(height: 24),
           ],
 

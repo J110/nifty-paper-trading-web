@@ -10,6 +10,7 @@ class SignalResponse {
   final Map<String, VersionSignal> versionSignals;
   final List<Indicator> indicators;
   final List<PredictionReason> predictionReasons;
+  final String predictionSummary;
   final double? confidenceScore;
   final String status;
 
@@ -23,6 +24,7 @@ class SignalResponse {
     this.versionSignals = const {},
     this.indicators = const [],
     this.predictionReasons = const [],
+    this.predictionSummary = '',
     this.confidenceScore,
     this.status = 'unknown',
   });
@@ -55,6 +57,7 @@ class SignalResponse {
       versionSignals: versSignals,
       indicators: indicators,
       predictionReasons: reasons,
+      predictionSummary: json['prediction_summary'] ?? '',
       confidenceScore: (json['confidence_score'] as num?)?.toDouble(),
       status: json['status'] ?? 'unknown',
     );
