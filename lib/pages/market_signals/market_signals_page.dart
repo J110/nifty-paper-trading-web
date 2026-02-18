@@ -88,17 +88,82 @@ class _SignalsContent extends ConsumerWidget {
   final SignalResponse signal;
   const _SignalsContent({required this.signal});
 
+  /// Compute the next expected data update time and return a user-friendly message.
+  String _nextUpdateMessage() {
+    final now = DateTime.now();
+    // Pipeline schedule (IST): 9:20 prediction, 15:25 exit check, 15:35 EOD
+    final istOffset = const Duration(hours: 5, minutes: 30);
+    final nowIst = now.toUtc().add(istOffset);
+    final hour = nowIst.hour;
+    final minute = nowIst.minute;
+    final currentMinutes = hour * 60 + minute;
+
+    // Weekday check (1=Mon, 7=Sun)
+    final weekday = nowIst.weekday;
+    if (weekday >= 6) {
+      return 'No new data available. Markets are closed on weekends \u2014 check back Monday after 9:20 AM IST.';
+    }
+
+    const prediction = 9 * 60 + 20;   // 9:20
+    const exitCheck = 15 * 60 + 25;    // 15:25
+    const eod = 15 * 60 + 35;          // 15:35
+
+    String nextTime;
+    if (currentMinutes < prediction) {
+      nextTime = '9:20 AM';
+    } else if (currentMinutes < exitCheck) {
+      nextTime = '3:25 PM';
+    } else if (currentMinutes < eod) {
+      nextTime = '3:35 PM';
+    } else {
+      return 'No new data available. All pipelines have completed for today \u2014 check back tomorrow after 9:20 AM IST.';
+    }
+
+    return 'No new data available. Next update expected around $nextTime IST.';
+  }
+
+  Future<void> _handleRefresh(BuildContext context, WidgetRef ref) async {
+    final oldTimestamp = signal.timestamp;
+
+    // Invalidate and wait for fresh data
+    ref.invalidate(signalsAutoRefreshProvider);
+    ref.invalidate(todayActivityProvider);
+    ref.invalidate(niftyChartProvider);
+    ref.invalidate(drawdownComparisonProvider);
+
+    // Give the provider time to refetch
+    await Future.delayed(const Duration(milliseconds: 1500));
+
+    // Check if data actually changed
+    final newSignal = ref.read(signalsAutoRefreshProvider);
+    final newTimestamp = newSignal.valueOrNull?.timestamp;
+
+    if (newTimestamp != null && newTimestamp == oldTimestamp && context.mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _nextUpdateMessage(),
+            style: const TextStyle(fontSize: 13),
+          ),
+          backgroundColor: const Color(0xFF30363D),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return RefreshIndicator(
       color: const Color(0xFF58A6FF),
       backgroundColor: const Color(0xFF161B22),
-      onRefresh: () async {
-        ref.invalidate(signalsAutoRefreshProvider);
-        ref.invalidate(todayActivityProvider);
-        ref.invalidate(niftyChartProvider);
-        ref.invalidate(drawdownComparisonProvider);
-      },
+      onRefresh: () => _handleRefresh(context, ref),
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -108,12 +173,7 @@ class _SignalsContent extends ConsumerWidget {
             // ------ 1. Nifty Price Header ------
             _NiftyPriceHeader(
               signal: signal,
-              onRefresh: () {
-                ref.invalidate(signalsAutoRefreshProvider);
-                ref.invalidate(todayActivityProvider);
-                ref.invalidate(niftyChartProvider);
-                ref.invalidate(drawdownComparisonProvider);
-              },
+              onRefresh: () => _handleRefresh(context, ref),
             ),
           const SizedBox(height: 12),
 
